@@ -31,7 +31,8 @@ const Auth = () => {
       if (pass.length < 8) errors.push("at least 8 characters");
       if (!/[A-Z]/.test(pass)) errors.push("one uppercase letter");
       if (!/[0-9]/.test(pass)) errors.push("one number");
-      if (!/[!@#$%^&*(),.?":{}|<>]/.test(pass)) errors.push("one special character");
+      if (!/[!@#$%^&*(),.?":{}|<>]/.test(pass))
+        errors.push("one special character");
 
       if (errors.length > 0) {
         return "Password is missing: " + errors.join(", ");
@@ -46,7 +47,7 @@ const Auth = () => {
         console.log("Login response:", response.data);
         if (response.data.success) {
           toast.success("Welcome back!", {
-            description: "You have successfully logged in."
+            description: "You have successfully logged in.",
           });
           localStorage.setItem("user", JSON.stringify(response.data.user));
           navigate("/");
@@ -54,7 +55,10 @@ const Auth = () => {
       } else {
         // Signup validation
         if (!agreedToTerms) {
-          toast.error("Terms & Privacy", { description: "You must agree to the Privacy Policy and Terms of Service to create an account." });
+          toast.error("Terms & Privacy", {
+            description:
+              "You must agree to the Privacy Policy and Terms of Service to create an account.",
+          });
           setIsLoading(false);
           return;
         }
@@ -77,20 +81,26 @@ const Auth = () => {
         const response = await api.post("/auth/signup", {
           email,
           password,
-          name
+          name,
         });
         console.log("Signup response:", response.data);
 
         if (response.data.success) {
           toast.success("Account created!", {
-            description: "Your account has been created successfully."
+            description: "Your account has been created successfully.",
           });
 
           // Auto login after signup
           try {
-            const loginResponse = await api.post("/auth/login", { email, password });
+            const loginResponse = await api.post("/auth/login", {
+              email,
+              password,
+            });
             if (loginResponse.data.success) {
-              localStorage.setItem("user", JSON.stringify(loginResponse.data.user));
+              localStorage.setItem(
+                "user",
+                JSON.stringify(loginResponse.data.user)
+              );
               navigate("/");
             }
           } catch (loginError) {
@@ -103,7 +113,9 @@ const Auth = () => {
       console.error("Auth error:", error);
       console.error("Error response:", error.response?.data);
       toast.error("Authentication failed", {
-        description: error.response?.data?.message || "An error occurred. Please try again."
+        description:
+          error.response?.data?.message ||
+          "An error occurred. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -112,7 +124,10 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen bg-background flex">
-      <PrivacyPolicyDialog open={privacyDialogOpen} onOpenChange={setPrivacyDialogOpen} />
+      <PrivacyPolicyDialog
+        open={privacyDialogOpen}
+        onOpenChange={setPrivacyDialogOpen}
+      />
 
       {/* Left side - Branding */}
       <div className="hidden lg:flex lg:w-1/2 gradient-medical items-center justify-center p-12">
@@ -122,7 +137,8 @@ const Auth = () => {
           </div>
           <h1 className="text-4xl font-bold mb-4">ScanMed</h1>
           <p className="text-lg opacity-90 max-w-md">
-            Your AI-powered health companion. Scan, analyze, and track your health with confidence.
+            Your AI-powered health companion. Scan, analyze, and track your
+            health with confidence.
           </p>
         </div>
       </div>
@@ -202,7 +218,11 @@ const Auth = () => {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
               </div>
 
@@ -222,7 +242,11 @@ const Auth = () => {
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
-                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showConfirmPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
               )}
@@ -244,7 +268,9 @@ const Auth = () => {
                   <Checkbox
                     id="terms"
                     checked={agreedToTerms}
-                    onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
+                    onCheckedChange={(checked) =>
+                      setAgreedToTerms(checked as boolean)
+                    }
                   />
                   <label
                     htmlFor="terms"
@@ -263,13 +289,19 @@ const Auth = () => {
               )}
 
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Please wait..." : (isLogin ? "Sign In" : "Create Account")}
+                {isLoading
+                  ? "Please wait..."
+                  : isLogin
+                  ? "Sign In"
+                  : "Create Account"}
               </Button>
             </form>
 
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground">
-                {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+                {isLogin
+                  ? "Don't have an account?"
+                  : "Already have an account?"}{" "}
                 <button
                   type="button"
                   onClick={() => setIsLogin(!isLogin)}
