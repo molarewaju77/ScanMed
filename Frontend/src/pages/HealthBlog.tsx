@@ -109,7 +109,10 @@ const HealthBlog = () => {
                 >
                   <div className="relative h-40 -mx-6 -mt-6 mb-4 overflow-hidden">
                     <img
-                      src={post.image || "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?w=400&h=250&fit=crop"}
+                      src={
+                        post.image ||
+                        "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?w=400&h=250&fit=crop"
+                      }
                       alt={post.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
@@ -129,7 +132,9 @@ const HealthBlog = () => {
                     {post.excerpt}
                   </p>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">{post.readTime}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {post.readTime}
+                    </span>
                     <span className="text-sm font-medium text-primary group-hover:underline">
                       Read More →
                     </span>

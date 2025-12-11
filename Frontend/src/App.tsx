@@ -21,6 +21,16 @@ import Auth from "./pages/Auth";
 import VerifyEmail from "./pages/VerifyEmail";
 import ResetPassword from "./pages/ResetPassword";
 import ForgotPassword from "./pages/ForgotPassword";
+import PrivacyPolicy from "./pages/privacypages/PrivacyPolicy";
+import TermsOfService from "./pages/privacypages/TermsOfService";
+import CookiePolicy from "./pages/privacypages/CookiePolicy";
+import MedicalDisclaimer from "./pages/privacypages/MedicalDisclaimer";
+import UserGuide from "./pages/privacypages/UserGuide";
+import DataBylaws from "./pages/privacypages/DataBylaws";
+import Compliance from "./pages/privacypages/Compliance";
+import HelpCenter from "./pages/privacypages/HelpCenter";
+import ContactUs from "./pages/privacypages/ContactUs";
+import ReportBug from "./pages/privacypages/ReportBug";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
@@ -31,8 +41,11 @@ import CreateBlog from "./pages/admin/CreateBlog";
 import HospitalManagement from "./pages/admin/HospitalManagement";
 import DoctorManagement from "./pages/admin/DoctorManagement";
 import AdminManagement from "./pages/admin/AdminManagement";
+import DoctorDashboard from "./pages/hospitals/DoctorDashboard";
+import DoctorAppointments from "./pages/hospitals/DoctorAppointments";
 import NotFound from "./pages/NotFound";
 import { ThemeProvider } from "./components/theme-provider";
+import useFcm from "./hooks/use-fcm";
 
 const queryClient = new QueryClient();
 
@@ -132,6 +145,8 @@ const DoctorRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const AppContent = () => {
+  useFcm(); // Initialize FCM hook
+
   return (
     <TooltipProvider>
       <Toaster />
@@ -155,6 +170,21 @@ const AppContent = () => {
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/legal/privacy" element={<PrivacyPolicy />} />
+            <Route path="/legal/terms" element={<TermsOfService />} />
+            <Route path="/legal/cookies" element={<CookiePolicy />} />
+            <Route
+              path="/legal/medical-disclaimer"
+              element={<MedicalDisclaimer />}
+            />
+
+            <Route path="/docs/user-guide" element={<UserGuide />} />
+            <Route path="/docs/data-bylaws" element={<DataBylaws />} />
+            <Route path="/docs/compliance" element={<Compliance />} />
+
+            <Route path="/support/help" element={<HelpCenter />} />
+            <Route path="/support/contact" element={<ContactUs />} />
+            <Route path="/support/bug-report" element={<ReportBug />} />
 
             {/* Protected User Routes */}
             <Route
@@ -302,6 +332,24 @@ const AppContent = () => {
                 <SuperAdminRoute>
                   <AdminManagement />
                 </SuperAdminRoute>
+              }
+            />
+
+            {/* Doctor Portal Routes */}
+            <Route
+              path="/hospitals/dashboard"
+              element={
+                <DoctorRoute>
+                  <DoctorDashboard />
+                </DoctorRoute>
+              }
+            />
+            <Route
+              path="/hospitals/appointments"
+              element={
+                <DoctorRoute>
+                  <DoctorAppointments />
+                </DoctorRoute>
               }
             />
 
