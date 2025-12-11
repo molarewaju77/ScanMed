@@ -1,6 +1,6 @@
 import GeminiChat from "../ml/js/chat/geminiChat.js";
 import OllamaChat from "../ml/js/chat/ollama/ollamaChat.js";
-import LlamaStackChat from "../ml/js/chat/llama-stack/llamaStackChat.js";
+import HuggingFaceChat from "../ml/js/chat/llama-stack/huggingFaceChat.js";
 import SttWhisper from "../ml/js/speech/sttWhisper.js";
 import TtsOpenAI from "../ml/js/tts/ttsOpenAI.js";
 import { ChatHistory } from "../models/chatHistory.model.js";
@@ -22,7 +22,7 @@ const AI_PROVIDER = process.env.AI_PROVIDER || 'gemini'; // Options: gemini, oll
 
 const geminiChat = process.env.GEMINI_API_KEY ? new GeminiChat(process.env.GEMINI_API_KEY) : null;
 const ollamaChat = new OllamaChat(); // Ollama runs locally, no API key needed
-const llamaStackChat = new LlamaStackChat(); // Llama Stack runs locally
+const huggingFaceChat = new HuggingFaceChat(); // Hugging Face cloud API, no local installation
 
 const sttWhisper = process.env.OPENAI_API_KEY ? new SttWhisper(process.env.OPENAI_API_KEY) : null;
 const ttsOpenAI = process.env.OPENAI_API_KEY ? new TtsOpenAI(process.env.OPENAI_API_KEY) : null;
@@ -35,7 +35,7 @@ function getAIClient() {
     const providers = {
         'gemini': geminiChat,
         'ollama': ollamaChat,
-        'llama-stack': llamaStackChat
+        'huggingface': huggingFaceChat
     };
 
     // Try primary provider
@@ -45,8 +45,8 @@ function getAIClient() {
         return { client: primary, provider: AI_PROVIDER };
     }
 
-    // Fallback chain: Ollama → Llama Stack → Gemini
-    const fallbackOrder = ['ollama', 'llama-stack', 'gemini'];
+    // Fallback chain: Ollama → Hugging Face → Gemini
+    const fallbackOrder = ['ollama', 'huggingface', 'gemini'];
     for (const providerName of fallbackOrder) {
         const client = providers[providerName];
         if (client) {
