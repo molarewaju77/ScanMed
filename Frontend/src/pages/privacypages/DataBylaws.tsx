@@ -1,8 +1,8 @@
-import { Shield, CheckCircle } from "lucide-react";
+import { Shield, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate, Link } from "react-router-dom";
 
-const Compliance = () => {
+const DataBylaws = () => {
     const navigate = useNavigate();
 
     return (
@@ -14,12 +14,12 @@ const Compliance = () => {
                     </Button>
                     <div className="flex items-center gap-4 mb-4">
                         <div className="p-3 bg-primary/10 rounded-2xl">
-                            <CheckCircle className="w-8 h-8 text-primary" />
+                            <Database className="w-8 h-8 text-primary" />
                         </div>
-                        <h1 className="text-3xl font-bold text-foreground">Compliance</h1>
+                        <h1 className="text-3xl font-bold text-foreground">Data Bylaws</h1>
                     </div>
                     <p className="text-lg text-muted-foreground">
-                        Our adherence to regulatory standards.
+                        Internal regulations regarding data management.
                     </p>
                 </div>
             </div>
@@ -27,16 +27,17 @@ const Compliance = () => {
             <div className="container mx-auto px-4 max-w-4xl py-12 space-y-16">
                 <section className="scroll-mt-20">
                     <div className="prose dark:prose-invert max-w-none space-y-4 text-muted-foreground">
+                        <p><strong>Effective Date: December 5, 2025</strong></p>
                         <p>
-                            ScanMed is committed to complying with relevant healthcare and data protection regulations.
+                            These bylaws govern the internal handling, processing, and storage of data within ScanMed.
                         </p>
-                        <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">NDPR Compliance</h3>
+                        <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">Article 1: Data Classification</h3>
                         <p>
-                            As a Nigeria-based company, we fully align with the Nigeria Data Protection Regulation (NDPR) to ensure the sovereign rights of our users over their data are respected.
+                            All data is classified into three tiers: Public, Internal, and Restricted (PII/PHI). Restricted data requires the highest level of encryption and access control.
                         </p>
-                        <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">HIPAA Compliance</h3>
+                        <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">Article 2: Access Control</h3>
                         <p>
-                            While operating globally, we adopt standards from the Health Insurance Portability and Accountability Act (HIPAA) to guide our security architecture for protecting Protected Health Information (PHI).
+                            Access to user data is granted on a strict need-to-know basis. All access logs are immutable and audited quarterly.
                         </p>
                     </div>
                 </section>
@@ -90,4 +91,4 @@ const Compliance = () => {
     );
 };
 
-export default Compliance;
+export default DataBylaws;

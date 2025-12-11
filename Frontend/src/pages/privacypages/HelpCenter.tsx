@@ -1,8 +1,9 @@
-import { Shield, CheckCircle } from "lucide-react";
+import { Shield, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate, Link } from "react-router-dom";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
-const Compliance = () => {
+const HelpCenter = () => {
     const navigate = useNavigate();
 
     return (
@@ -14,31 +15,38 @@ const Compliance = () => {
                     </Button>
                     <div className="flex items-center gap-4 mb-4">
                         <div className="p-3 bg-primary/10 rounded-2xl">
-                            <CheckCircle className="w-8 h-8 text-primary" />
+                            <HelpCircle className="w-8 h-8 text-primary" />
                         </div>
-                        <h1 className="text-3xl font-bold text-foreground">Compliance</h1>
+                        <h1 className="text-3xl font-bold text-foreground">Help Center</h1>
                     </div>
                     <p className="text-lg text-muted-foreground">
-                        Our adherence to regulatory standards.
+                        Find answers to your questions.
                     </p>
                 </div>
             </div>
 
             <div className="container mx-auto px-4 max-w-4xl py-12 space-y-16">
                 <section className="scroll-mt-20">
-                    <div className="prose dark:prose-invert max-w-none space-y-4 text-muted-foreground">
-                        <p>
-                            ScanMed is committed to complying with relevant healthcare and data protection regulations.
-                        </p>
-                        <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">NDPR Compliance</h3>
-                        <p>
-                            As a Nigeria-based company, we fully align with the Nigeria Data Protection Regulation (NDPR) to ensure the sovereign rights of our users over their data are respected.
-                        </p>
-                        <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">HIPAA Compliance</h3>
-                        <p>
-                            While operating globally, we adopt standards from the Health Insurance Portability and Accountability Act (HIPAA) to guide our security architecture for protecting Protected Health Information (PHI).
-                        </p>
-                    </div>
+                    <Accordion type="single" collapsible className="w-full">
+                        <AccordionItem value="item-1">
+                            <AccordionTrigger>How do I reset my password?</AccordionTrigger>
+                            <AccordionContent>
+                                You can reset your password by going to the login page and clicking on "Forgot Password". Follow the instructions sent to your email.
+                            </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="item-2">
+                            <AccordionTrigger>Why are my scans taking long to process?</AccordionTrigger>
+                            <AccordionContent>
+                                Scan processing typically takes a few seconds. If it takes longer, it might be due to high server load or large file size. Please try again or contact support if the issue persists.
+                            </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="item-3">
+                            <AccordionTrigger>How can I enable Dark Mode?</AccordionTrigger>
+                            <AccordionContent>
+                                You can toggle between Light and Dark mode in your Profile Settings or using the theme toggle in the main menu.
+                            </AccordionContent>
+                        </AccordionItem>
+                    </Accordion>
                 </section>
             </div>
 
@@ -90,4 +98,4 @@ const Compliance = () => {
     );
 };
 
-export default Compliance;
+export default HelpCenter;

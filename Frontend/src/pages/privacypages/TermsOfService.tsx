@@ -1,12 +1,15 @@
-import { Shield, CheckCircle } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Shield, Lock, Eye, Server, FileText, HelpCircle, FileCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate, Link } from "react-router-dom";
 
-const Compliance = () => {
+const TermsOfService = () => {
     const navigate = useNavigate();
 
     return (
         <div className="min-h-screen bg-background">
+            {/* Header */}
             <div className="bg-primary/5 py-12">
                 <div className="container mx-auto px-4 max-w-4xl">
                     <Button variant="ghost" onClick={() => navigate(-1)} className="mb-4 pl-0 hover:bg-transparent hover:text-primary">
@@ -14,29 +17,34 @@ const Compliance = () => {
                     </Button>
                     <div className="flex items-center gap-4 mb-4">
                         <div className="p-3 bg-primary/10 rounded-2xl">
-                            <CheckCircle className="w-8 h-8 text-primary" />
+                            <FileCheck className="w-8 h-8 text-primary" />
                         </div>
-                        <h1 className="text-3xl font-bold text-foreground">Compliance</h1>
+                        <h1 className="text-3xl font-bold text-foreground">Terms of Service</h1>
                     </div>
                     <p className="text-lg text-muted-foreground">
-                        Our adherence to regulatory standards.
+                        Please read these terms carefully before using our services.
                     </p>
                 </div>
             </div>
 
             <div className="container mx-auto px-4 max-w-4xl py-12 space-y-16">
-                <section className="scroll-mt-20">
+                <section id="terms" className="scroll-mt-20">
                     <div className="prose dark:prose-invert max-w-none space-y-4 text-muted-foreground">
+                        <p><strong>Last Updated: December 5, 2025</strong></p>
                         <p>
-                            ScanMed is committed to complying with relevant healthcare and data protection regulations.
+                            Welcome to ScanMed. By accessing or using our website and services, you agree to be bound by these Terms of Service.
                         </p>
-                        <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">NDPR Compliance</h3>
+                        <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">1. Acceptance of Terms</h3>
                         <p>
-                            As a Nigeria-based company, we fully align with the Nigeria Data Protection Regulation (NDPR) to ensure the sovereign rights of our users over their data are respected.
+                            By accessing or using our Service, you agree to be bound by these Terms. If you disagree with any part of the terms, then you may not access the Service.
                         </p>
-                        <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">HIPAA Compliance</h3>
+                        <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">2. Accounts</h3>
                         <p>
-                            While operating globally, we adopt standards from the Health Insurance Portability and Accountability Act (HIPAA) to guide our security architecture for protecting Protected Health Information (PHI).
+                            When you create an account with us, you must provide us information that is accurate, complete, and current at all times. Failure to do so constitutes a breach of the Terms, which may result in immediate termination of your account on our Service.
+                        </p>
+                        <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">3. Intellectual Property</h3>
+                        <p>
+                            The Service and its original content, features, and functionality are and will remain the exclusive property of ScanMed and its licensors.
                         </p>
                     </div>
                 </section>
@@ -90,4 +98,4 @@ const Compliance = () => {
     );
 };
 
-export default Compliance;
+export default TermsOfService;

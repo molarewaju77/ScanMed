@@ -1,8 +1,8 @@
-import { Shield, CheckCircle } from "lucide-react";
+import { Shield, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate, Link } from "react-router-dom";
 
-const Compliance = () => {
+const MedicalDisclaimer = () => {
     const navigate = useNavigate();
 
     return (
@@ -14,12 +14,12 @@ const Compliance = () => {
                     </Button>
                     <div className="flex items-center gap-4 mb-4">
                         <div className="p-3 bg-primary/10 rounded-2xl">
-                            <CheckCircle className="w-8 h-8 text-primary" />
+                            <AlertTriangle className="w-8 h-8 text-primary" />
                         </div>
-                        <h1 className="text-3xl font-bold text-foreground">Compliance</h1>
+                        <h1 className="text-3xl font-bold text-foreground">Medical Disclaimer</h1>
                     </div>
                     <p className="text-lg text-muted-foreground">
-                        Our adherence to regulatory standards.
+                        Important information regarding medical advice and liability.
                     </p>
                 </div>
             </div>
@@ -27,16 +27,17 @@ const Compliance = () => {
             <div className="container mx-auto px-4 max-w-4xl py-12 space-y-16">
                 <section className="scroll-mt-20">
                     <div className="prose dark:prose-invert max-w-none space-y-4 text-muted-foreground">
+                        <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-yellow-600 dark:text-yellow-400">
+                            <strong>No Medical Advice:</strong> The information provided by ScanMed is for informational purposes only.
+                        </div>
                         <p>
-                            ScanMed is committed to complying with relevant healthcare and data protection regulations.
+                            The ScanMed application is not intended to be a substitute for professional medical advice, diagnosis, or treatment. Always seek the advice of your physician or other qualified health provider with any questions you may have regarding a medical condition.
                         </p>
-                        <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">NDPR Compliance</h3>
                         <p>
-                            As a Nigeria-based company, we fully align with the Nigeria Data Protection Regulation (NDPR) to ensure the sovereign rights of our users over their data are respected.
+                            Never disregard professional medical advice or delay in seeking it because of something you have read on ScanMed.
                         </p>
-                        <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">HIPAA Compliance</h3>
                         <p>
-                            While operating globally, we adopt standards from the Health Insurance Portability and Accountability Act (HIPAA) to guide our security architecture for protecting Protected Health Information (PHI).
+                            If you think you may have a medical emergency, call your doctor or emergency services immediately.
                         </p>
                     </div>
                 </section>
@@ -90,4 +91,4 @@ const Compliance = () => {
     );
 };
 
-export default Compliance;
+export default MedicalDisclaimer;

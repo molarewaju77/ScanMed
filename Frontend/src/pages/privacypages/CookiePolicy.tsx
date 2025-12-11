@@ -1,8 +1,8 @@
-import { Shield, CheckCircle } from "lucide-react";
+import { Shield, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate, Link } from "react-router-dom";
 
-const Compliance = () => {
+const CookiePolicy = () => {
     const navigate = useNavigate();
 
     return (
@@ -14,12 +14,12 @@ const Compliance = () => {
                     </Button>
                     <div className="flex items-center gap-4 mb-4">
                         <div className="p-3 bg-primary/10 rounded-2xl">
-                            <CheckCircle className="w-8 h-8 text-primary" />
+                            <Info className="w-8 h-8 text-primary" />
                         </div>
-                        <h1 className="text-3xl font-bold text-foreground">Compliance</h1>
+                        <h1 className="text-3xl font-bold text-foreground">Cookie Policy</h1>
                     </div>
                     <p className="text-lg text-muted-foreground">
-                        Our adherence to regulatory standards.
+                        How we use cookies and similar technologies.
                     </p>
                 </div>
             </div>
@@ -27,17 +27,19 @@ const Compliance = () => {
             <div className="container mx-auto px-4 max-w-4xl py-12 space-y-16">
                 <section className="scroll-mt-20">
                     <div className="prose dark:prose-invert max-w-none space-y-4 text-muted-foreground">
+                        <p><strong>Last Updated: December 5, 2025</strong></p>
                         <p>
-                            ScanMed is committed to complying with relevant healthcare and data protection regulations.
+                            This Cookie Policy explains what cookies are and how ScanMed uses them.
                         </p>
-                        <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">NDPR Compliance</h3>
+                        <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">What are Cookies?</h3>
                         <p>
-                            As a Nigeria-based company, we fully align with the Nigeria Data Protection Regulation (NDPR) to ensure the sovereign rights of our users over their data are respected.
+                            Cookies are small text files that are sent to or accessed from your web browser or your device's memory. A cookie typically contains the name of the domain (internet location) from which the cookie originated, the "lifetime" of the cookie (i.e., when it expires) and a randomly generated unique number or similar identifier.
                         </p>
-                        <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">HIPAA Compliance</h3>
-                        <p>
-                            While operating globally, we adopt standards from the Health Insurance Portability and Accountability Act (HIPAA) to guide our security architecture for protecting Protected Health Information (PHI).
-                        </p>
+                        <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">How We Use Cookies</h3>
+                        <ul className="list-disc pl-5 space-y-2">
+                            <li><strong>Essential Cookies:</strong> Necessary for the proper functioning of the site (e.g., authentication).</li>
+                            <li><strong>Analytics Cookies:</strong> Help us understand how visitors interact with our website.</li>
+                        </ul>
                     </div>
                 </section>
             </div>
@@ -90,4 +92,4 @@ const Compliance = () => {
     );
 };
 
-export default Compliance;
+export default CookiePolicy;

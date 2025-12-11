@@ -1,8 +1,10 @@
-import { Shield, CheckCircle } from "lucide-react";
+import { Shield, Bug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate, Link } from "react-router-dom";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
-const Compliance = () => {
+const ReportBug = () => {
     const navigate = useNavigate();
 
     return (
@@ -14,30 +16,38 @@ const Compliance = () => {
                     </Button>
                     <div className="flex items-center gap-4 mb-4">
                         <div className="p-3 bg-primary/10 rounded-2xl">
-                            <CheckCircle className="w-8 h-8 text-primary" />
+                            <Bug className="w-8 h-8 text-primary" />
                         </div>
-                        <h1 className="text-3xl font-bold text-foreground">Compliance</h1>
+                        <h1 className="text-3xl font-bold text-foreground">Report a Bug</h1>
                     </div>
                     <p className="text-lg text-muted-foreground">
-                        Our adherence to regulatory standards.
+                        Help us improve by reporting any issues you find.
                     </p>
                 </div>
             </div>
 
             <div className="container mx-auto px-4 max-w-4xl py-12 space-y-16">
                 <section className="scroll-mt-20">
-                    <div className="prose dark:prose-invert max-w-none space-y-4 text-muted-foreground">
-                        <p>
-                            ScanMed is committed to complying with relevant healthcare and data protection regulations.
-                        </p>
-                        <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">NDPR Compliance</h3>
-                        <p>
-                            As a Nigeria-based company, we fully align with the Nigeria Data Protection Regulation (NDPR) to ensure the sovereign rights of our users over their data are respected.
-                        </p>
-                        <h3 className="text-xl font-semibold text-foreground mt-6 mb-2">HIPAA Compliance</h3>
-                        <p>
-                            While operating globally, we adopt standards from the Health Insurance Portability and Accountability Act (HIPAA) to guide our security architecture for protecting Protected Health Information (PHI).
-                        </p>
+                    <div className="max-w-xl space-y-6">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Issue Subject</label>
+                            <Input placeholder="Brief description of the issue" />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Description</label>
+                            <Textarea
+                                placeholder="Please describe the bug in detail, including steps to reproduce it."
+                                className="min-h-[150px]"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Email (Optional)</label>
+                            <Input type="email" placeholder="Your email for follow-up" />
+                        </div>
+
+                        <Button className="w-full">Submit Report</Button>
                     </div>
                 </section>
             </div>
@@ -90,4 +100,4 @@ const Compliance = () => {
     );
 };
 
-export default Compliance;
+export default ReportBug;
