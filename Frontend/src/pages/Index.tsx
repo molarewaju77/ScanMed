@@ -38,7 +38,14 @@ const Index = () => {
         const user = JSON.parse(storedUser);
         const name = user.name || user.fullName || "User";
         setUserName(name);
-        setUserInitials(name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase());
+        setUserInitials(
+          name
+            .split(" ")
+            .map((n: string) => n[0])
+            .join("")
+            .substring(0, 2)
+            .toUpperCase()
+        );
       } catch (error) {
         console.error("Error parsing user data:", error);
       }
@@ -59,30 +66,53 @@ const Index = () => {
 
           // Process scans to get latest for each type
           const latestScans: any = {
-            eye: scans.find((s: any) => s.scanType === 'eyes'),
-            teeth: scans.find((s: any) => s.scanType === 'teeth'),
-            skin: scans.find((s: any) => s.scanType === 'skin') // Assuming 'skin' is the type, frontend used 'skin' in mock
+            eye: scans.find((s: any) => s.scanType === "eyes"),
+            teeth: scans.find((s: any) => s.scanType === "teeth"),
+            skin: scans.find((s: any) => s.scanType === "skin"), // Assuming 'skin' is the type, frontend used 'skin' in mock
           };
 
           const newResults = {
             eye: {
-              score: latestScans.eye ? (latestScans.eye.status === 'success' ? 90 : 50) : 0, // Mock score based on status as backend might not return score yet
-              updatedAgo: latestScans.eye ? getTimeAgo(new Date(latestScans.eye.createdAt)) : "Not scanned yet"
+              score: latestScans.eye
+                ? latestScans.eye.status === "success"
+                  ? 90
+                  : 50
+                : 0, // Mock score based on status as backend might not return score yet
+              updatedAgo: latestScans.eye
+                ? getTimeAgo(new Date(latestScans.eye.createdAt))
+                : "Not scanned yet",
             },
             teeth: {
-              score: latestScans.teeth ? (latestScans.teeth.status === 'success' ? 85 : 45) : 0,
-              updatedAgo: latestScans.teeth ? getTimeAgo(new Date(latestScans.teeth.createdAt)) : "Not scanned yet"
+              score: latestScans.teeth
+                ? latestScans.teeth.status === "success"
+                  ? 85
+                  : 45
+                : 0,
+              updatedAgo: latestScans.teeth
+                ? getTimeAgo(new Date(latestScans.teeth.createdAt))
+                : "Not scanned yet",
             },
             skin: {
-              score: latestScans.skin ? (latestScans.skin.status === 'success' ? 95 : 60) : 0,
-              updatedAgo: latestScans.skin ? getTimeAgo(new Date(latestScans.skin.createdAt)) : "Not scanned yet"
-            }
+              score: latestScans.skin
+                ? latestScans.skin.status === "success"
+                  ? 95
+                  : 60
+                : 0,
+              updatedAgo: latestScans.skin
+                ? getTimeAgo(new Date(latestScans.skin.createdAt))
+                : "Not scanned yet",
+            },
           };
           setScanResults(newResults);
 
           // Calculate overall score
-          const scores = Object.values(newResults).map(r => r.score).filter(s => s > 0);
-          const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+          const scores = Object.values(newResults)
+            .map((r) => r.score)
+            .filter((s) => s > 0);
+          const avgScore =
+            scores.length > 0
+              ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+              : 0;
           setOverallScore(avgScore);
         }
       }
@@ -112,8 +142,7 @@ const Index = () => {
     {
       icon: Eye,
       title: "Eye Care",
-      description:
-        "Consider reducing screen time and using blue light glasses",
+      description: "Consider reducing screen time and using blue light glasses",
     },
     {
       icon: Smile,
@@ -131,7 +160,6 @@ const Index = () => {
   return (
     <MainLayout>
       <div className="max-w-7xl mx-auto space-y-6">
-
         {/* Page Header */}
         <div>
           <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
@@ -159,8 +187,8 @@ const Index = () => {
               AI Health Scanner
             </h3>
             <p className="text-sm text-muted-foreground mt-1">
-              Get instant AI-powered insights about your eyes, teeth, and skin health.
-              Early detection can make all the difference.
+              Get instant AI-powered insights about your eyes, teeth, and skin
+              health. Early detection can make all the difference.
             </p>
             <div className="flex flex-wrap gap-2 mt-3">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium bg-accent text-primary rounded-full border border-primary/20">
@@ -209,7 +237,6 @@ const Index = () => {
 
         {/* Self Care + Quick Actions (2 columns) */}
         <div className="grid lg:grid-cols-12 gap-6">
-
           {/* Self Care Recommendations */}
           <div className="lg:col-span-8 col-span-12">
             <h2 className="text-lg font-semibold text-foreground mb-4">
@@ -225,9 +252,7 @@ const Index = () => {
                     <rec.icon className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <h4 className="font-medium text-foreground">
-                      {rec.title}
-                    </h4>
+                    <h4 className="font-medium text-foreground">{rec.title}</h4>
                     <p className="text-sm text-muted-foreground mt-0.5">
                       {rec.description}
                     </p>
@@ -260,7 +285,6 @@ const Index = () => {
               ))}
             </div>
           </div>
-
         </div>
       </div>
     </MainLayout>

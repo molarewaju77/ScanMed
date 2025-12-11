@@ -10,7 +10,6 @@ import {
   useLocation,
 } from "react-router-dom";
 
-// === ONLY import the pages you sent ===
 import Index from "./pages/Index";
 import Scan from "./pages/Scan";
 import Chat from "./pages/Chat";
@@ -24,7 +23,6 @@ import VerifyEmail from "./pages/VerifyEmail";
 import ResetPassword from "./pages/ResetPassword";
 import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
-// ======================================
 
 import { ThemeProvider } from "./components/theme-provider";
 import useFcm from "./hooks/use-fcm";
