@@ -9,7 +9,6 @@ import {
   Navigate,
   useLocation,
 } from "react-router-dom";
-
 import Index from "./pages/Index";
 import Scan from "./pages/Scan";
 import Chat from "./pages/Chat";
@@ -22,14 +21,22 @@ import Auth from "./pages/Auth";
 import VerifyEmail from "./pages/VerifyEmail";
 import ResetPassword from "./pages/ResetPassword";
 import ForgotPassword from "./pages/ForgotPassword";
-import NotFound from "./pages/NotFound";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminAnalytics from "./pages/admin/AdminAnalytics";
+import AdminChats from "./pages/admin/AdminChats";
 
+import AdminBlogs from "./pages/admin/AdminBlogs";
+import CreateBlog from "./pages/admin/CreateBlog";
+import HospitalManagement from "./pages/admin/HospitalManagement";
+import DoctorManagement from "./pages/admin/DoctorManagement";
+import AdminManagement from "./pages/admin/AdminManagement";
+import NotFound from "./pages/NotFound";
 import { ThemeProvider } from "./components/theme-provider";
-import useFcm from "./hooks/use-fcm";
 
 const queryClient = new QueryClient();
 
-// Protected Route Component (Simplified)
+// Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const isAuthenticated = localStorage.getItem("isAuthenticated");
   const location = useLocation();
@@ -42,7 +49,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Auth Route Component (Simplified)
+// Auth Route Component
 const AuthRoute = ({ children }: { children: React.ReactNode }) => {
   const isAuthenticated = localStorage.getItem("isAuthenticated");
   const user = localStorage.getItem("user");
@@ -54,20 +61,89 @@ const AuthRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// NOTE: All Admin, SuperAdmin, and Doctor Route Guards have been REMOVED for this minimal commit.
+// Admin Route Component (Admin + SuperAdmin)
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const isAuthenticated = localStorage.getItem("isAuthenticated");
+  const userStr = localStorage.getItem("user");
+  const location = useLocation();
+
+  if (!userStr && !isAuthenticated) {
+    return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+
+  try {
+    const user = JSON.parse(userStr || "{}");
+    const allowedRoles = ["superadmin", "admin", "manager"];
+
+    if (!allowedRoles.includes(user.role)) {
+      return <Navigate to="/" replace />;
+    }
+  } catch (e) {
+    return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+
+  return <>{children}</>;
+};
+
+// SuperAdmin Route Component (SuperAdmin only)
+const SuperAdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const isAuthenticated = localStorage.getItem("isAuthenticated");
+  const userStr = localStorage.getItem("user");
+  const location = useLocation();
+
+  if (!userStr && !isAuthenticated) {
+    return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+
+  try {
+    const user = JSON.parse(userStr || "{}");
+
+    if (user.role !== "superadmin") {
+      return <Navigate to="/" replace />;
+    }
+  } catch (e) {
+    return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+
+  return <>{children}</>;
+};
+
+// Doctor Route Component (Doctor only)
+const DoctorRoute = ({ children }: { children: React.ReactNode }) => {
+  const isAuthenticated = localStorage.getItem("isAuthenticated");
+  const userStr = localStorage.getItem("user");
+  const location = useLocation();
+
+  if (!userStr && !isAuthenticated) {
+    return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+
+  try {
+    const user = JSON.parse(userStr || "{}");
+
+    if (user.role !== "doctor") {
+      return <Navigate to="/" replace />;
+    }
+  } catch (e) {
+    return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+
+  return <>{children}</>;
+};
 
 const AppContent = () => {
-  useFcm(); // Initialize FCM hook
-
   return (
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        {/* Removed adminStorageKey as Admin routes are not present */}
-        <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+        <ThemeProvider
+          defaultTheme="system"
+          storageKey="vite-ui-theme"
+          adminStorageKey="vite-admin-theme"
+        >
           <Routes>
-            {/* Minimal Auth Routes */}
+            {/* Auth Routes */}
             <Route
               path="/auth"
               element={
@@ -80,7 +156,7 @@ const AppContent = () => {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
 
-            {/* Minimal Protected User Routes */}
+            {/* Protected User Routes */}
             <Route
               path="/"
               element={
@@ -143,6 +219,89 @@ const AppContent = () => {
                 <ProtectedRoute>
                   <Profile />
                 </ProtectedRoute>
+              }
+            />
+
+            {/* Protected Admin Routes */}
+            <Route
+              path="/admin"
+              element={
+                <AdminRoute>
+                  <AdminDashboard />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/users"
+              element={
+                <AdminRoute>
+                  <AdminUsers />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/analytics"
+              element={
+                <AdminRoute>
+                  <AdminAnalytics />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/chats"
+              element={
+                <AdminRoute>
+                  <AdminChats />
+                </AdminRoute>
+              }
+            />
+
+            <Route
+              path="/admin/blogs"
+              element={
+                <AdminRoute>
+                  <AdminBlogs />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/blogs/new"
+              element={
+                <AdminRoute>
+                  <CreateBlog />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/blogs/edit/:id"
+              element={
+                <AdminRoute>
+                  <CreateBlog />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/hospitals"
+              element={
+                <AdminRoute>
+                  <HospitalManagement />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/doctors"
+              element={
+                <AdminRoute>
+                  <DoctorManagement />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/admins"
+              element={
+                <SuperAdminRoute>
+                  <AdminManagement />
+                </SuperAdminRoute>
               }
             />
 
