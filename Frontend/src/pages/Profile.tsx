@@ -29,7 +29,7 @@ const Profile = () => {
         const user = response.data.user;
         setProfile({
           name: user.name || "",
-          username: user.username || user.email?.split('@')[0] || "",
+          username: user.username || user.email?.split("@")[0] || "",
           email: user.email || "",
           phone: user.phoneNumber || "",
           bio: user.bio || "",
@@ -59,7 +59,10 @@ const Profile = () => {
         const storedUser = localStorage.getItem("user");
         if (storedUser) {
           const user = JSON.parse(storedUser);
-          localStorage.setItem("user", JSON.stringify({ ...user, ...response.data.user }));
+          localStorage.setItem(
+            "user",
+            JSON.stringify({ ...user, ...response.data.user })
+          );
         }
       }
     } catch (error) {
@@ -89,15 +92,28 @@ const Profile = () => {
         </div>
 
         <div className="medical-card">
-          <h2 className="text-lg font-semibold text-foreground mb-6">Profile Settings</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-6">
+            Profile Settings
+          </h2>
 
           <div className="flex items-center gap-4 mb-6">
             <div className="w-20 h-20 rounded-full gradient-medical flex items-center justify-center text-primary-foreground font-bold text-2xl">
-              {profile.name ? profile.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() : "U"}
+              {profile.name
+                ? profile.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .substring(0, 2)
+                    .toUpperCase()
+                : "U"}
             </div>
             <div>
-              <p className="font-medium text-foreground">{profile.name || "User"}</p>
-              <p className="text-sm text-muted-foreground">@{profile.username || "username"}</p>
+              <p className="font-medium text-foreground">
+                {profile.name || "User"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                @{profile.username || "username"}
+              </p>
             </div>
           </div>
 
@@ -108,7 +124,9 @@ const Profile = () => {
                 <Input
                   id="name"
                   value={profile.name}
-                  onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                  onChange={(e) =>
+                    setProfile({ ...profile, name: e.target.value })
+                  }
                 />
               </div>
               <div className="space-y-2">
@@ -116,7 +134,9 @@ const Profile = () => {
                 <Input
                   id="username"
                   value={profile.username}
-                  onChange={(e) => setProfile({ ...profile, username: e.target.value })}
+                  onChange={(e) =>
+                    setProfile({ ...profile, username: e.target.value })
+                  }
                   disabled // Username usually not editable or handled differently
                 />
               </div>
@@ -129,7 +149,9 @@ const Profile = () => {
                   id="email"
                   type="email"
                   value={profile.email}
-                  onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                  onChange={(e) =>
+                    setProfile({ ...profile, email: e.target.value })
+                  }
                   disabled // Email usually not editable directly here
                 />
               </div>
@@ -138,7 +160,9 @@ const Profile = () => {
                 <Input
                   id="phone"
                   value={profile.phone}
-                  onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                  onChange={(e) =>
+                    setProfile({ ...profile, phone: e.target.value })
+                  }
                 />
               </div>
             </div>
@@ -148,7 +172,9 @@ const Profile = () => {
               <Input
                 id="address"
                 value={profile.address}
-                onChange={(e) => setProfile({ ...profile, address: e.target.value })}
+                onChange={(e) =>
+                  setProfile({ ...profile, address: e.target.value })
+                }
               />
             </div>
 
@@ -157,7 +183,9 @@ const Profile = () => {
               <Textarea
                 id="bio"
                 value={profile.bio}
-                onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
+                onChange={(e) =>
+                  setProfile({ ...profile, bio: e.target.value })
+                }
                 rows={3}
               />
             </div>

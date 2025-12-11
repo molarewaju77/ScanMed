@@ -1,5 +1,17 @@
 import { useState, useRef, useEffect } from "react";
-import { Eye, Smile, User, Camera, ArrowLeft, X, CheckCircle, AlertCircle, Sparkles, Info, Scan as ScanIcon } from "lucide-react";
+import {
+  Eye,
+  Smile,
+  User,
+  Camera,
+  ArrowLeft,
+  X,
+  CheckCircle,
+  AlertCircle,
+  Sparkles,
+  Info,
+  Scan as ScanIcon,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -74,7 +86,11 @@ const Scan = () => {
     try {
       setCameraError(null);
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }
+        video: {
+          facingMode: "user",
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+        },
       });
       streamRef.current = stream;
       setCameraActive(true);
@@ -87,7 +103,7 @@ const Scan = () => {
 
   const stopCamera = () => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
     setCameraActive(false);
@@ -149,7 +165,10 @@ const Scan = () => {
         toast.success("Scan completed successfully!");
 
         // Auto-trigger hospital finder if result is dangerous/urgent
-        if (response.data.data.needsHospital || response.data.data.severity === "high") {
+        if (
+          response.data.data.needsHospital ||
+          response.data.data.severity === "high"
+        ) {
           toast.warning("⚠️ Urgent: Medical attention recommended!");
           setTimeout(() => {
             setShowLocationDialog(true);
@@ -209,8 +228,12 @@ const Scan = () => {
             <div className="w-14 h-14 rounded-2xl bg-accent flex items-center justify-center mx-auto mb-3">
               <selectedOption.icon className="w-7 h-7 text-primary" />
             </div>
-            <h1 className="text-xl font-bold text-foreground">{selectedOption.title}</h1>
-            <p className="text-sm text-muted-foreground mt-1">{selectedOption.description}</p>
+            <h1 className="text-xl font-bold text-foreground">
+              {selectedOption.title}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {selectedOption.description}
+            </p>
           </div>
 
           {!scanComplete ? (
@@ -230,8 +253,12 @@ const Scan = () => {
                       {isScanning && (
                         <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center">
                           <div className="w-14 h-14 rounded-full border-4 border-primary border-t-transparent animate-spin mb-4" />
-                          <p className="text-foreground font-medium">Analyzing {selectedOption?.title}...</p>
-                          <p className="text-sm text-muted-foreground">Checking for health indicators</p>
+                          <p className="text-foreground font-medium">
+                            Analyzing {selectedOption?.title}...
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Checking for health indicators
+                          </p>
                         </div>
                       )}
                       {!isScanning && (
@@ -248,13 +275,23 @@ const Scan = () => {
                       {cameraError ? (
                         <>
                           <AlertCircle className="w-10 h-10 text-destructive mb-3" />
-                          <p className="text-sm text-destructive font-medium mb-2">{cameraError}</p>
-                          <Button variant="outline" size="sm" onClick={startCamera}>Retry Camera</Button>
+                          <p className="text-sm text-destructive font-medium mb-2">
+                            {cameraError}
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={startCamera}
+                          >
+                            Retry Camera
+                          </Button>
                         </>
                       ) : (
                         <>
                           <Camera className="w-10 h-10 text-muted-foreground mb-3" />
-                          <p className="text-sm text-muted-foreground">Initializing camera...</p>
+                          <p className="text-sm text-muted-foreground">
+                            Initializing camera...
+                          </p>
                         </>
                       )}
                     </div>
@@ -293,14 +330,18 @@ const Scan = () => {
 
               {/* Instructions */}
               <div className="medical-card">
-                <h3 className="font-semibold text-foreground mb-3">Quick Tips</h3>
+                <h3 className="font-semibold text-foreground mb-3">
+                  Quick Tips
+                </h3>
                 <ul className="space-y-2">
                   {selectedOption.instructions.map((instruction, index) => (
                     <li key={index} className="flex items-start gap-3">
                       <span className="w-5 h-5 rounded-full bg-accent text-primary text-xs font-medium flex items-center justify-center shrink-0 mt-0.5">
                         {index + 1}
                       </span>
-                      <span className="text-sm text-muted-foreground">{instruction}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {instruction}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -311,15 +352,25 @@ const Scan = () => {
             <div className="space-y-6 animate-fade-in">
               <div className="medical-card p-6">
                 <div className="flex items-center gap-4 mb-6">
-                  <div className={cn(
-                    "w-12 h-12 rounded-full flex items-center justify-center",
-                    scanResult?.result === 'Healthy' ? "bg-green-100 text-green-600" : "bg-yellow-100 text-yellow-600"
-                  )}>
-                    {scanResult?.result === 'Healthy' ? <CheckCircle className="w-6 h-6" /> : <AlertCircle className="w-6 h-6" />}
+                  <div
+                    className={cn(
+                      "w-12 h-12 rounded-full flex items-center justify-center",
+                      scanResult?.result === "Healthy"
+                        ? "bg-green-100 text-green-600"
+                        : "bg-yellow-100 text-yellow-600"
+                    )}
+                  >
+                    {scanResult?.result === "Healthy" ? (
+                      <CheckCircle className="w-6 h-6" />
+                    ) : (
+                      <AlertCircle className="w-6 h-6" />
+                    )}
                   </div>
                   <div>
                     <h2 className="text-xl font-bold">Analysis Complete</h2>
-                    <p className="text-muted-foreground">Here are your AI-generated results</p>
+                    <p className="text-muted-foreground">
+                      Here are your AI-generated results
+                    </p>
                   </div>
                 </div>
 
@@ -327,7 +378,14 @@ const Scan = () => {
                   {/* Status Badge */}
                   <div className="flex items-center justify-between p-4 bg-accent/50 rounded-xl">
                     <span className="font-medium">Overall Status</span>
-                    <Badge variant={scanResult?.result === 'Healthy' ? "default" : "destructive"} className="text-base px-4 py-1">
+                    <Badge
+                      variant={
+                        scanResult?.result === "Healthy"
+                          ? "default"
+                          : "destructive"
+                      }
+                      className="text-base px-4 py-1"
+                    >
                       {scanResult?.result || "Unknown"}
                     </Badge>
                   </div>
@@ -336,8 +394,12 @@ const Scan = () => {
                   {scanResult?.confidence && (
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">AI Confidence</span>
-                        <span className="font-medium">{scanResult.confidence}%</span>
+                        <span className="text-muted-foreground">
+                          AI Confidence
+                        </span>
+                        <span className="font-medium">
+                          {scanResult.confidence}%
+                        </span>
                       </div>
                       <div className="h-2 bg-accent rounded-full overflow-hidden">
                         <div
@@ -357,22 +419,28 @@ const Scan = () => {
                   </Alert>
 
                   {/* Recommendations */}
-                  {scanResult?.recommendations && scanResult.recommendations.length > 0 && (
-                    <div className="space-y-3">
-                      <h3 className="font-semibold flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-primary" />
-                        Recommendations
-                      </h3>
-                      <ul className="space-y-2">
-                        {scanResult.recommendations.map((rec: string, i: number) => (
-                          <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-                            {rec}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                  {scanResult?.recommendations &&
+                    scanResult.recommendations.length > 0 && (
+                      <div className="space-y-3">
+                        <h3 className="font-semibold flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-primary" />
+                          Recommendations
+                        </h3>
+                        <ul className="space-y-2">
+                          {scanResult.recommendations.map(
+                            (rec: string, i: number) => (
+                              <li
+                                key={i}
+                                className="flex items-start gap-2 text-sm text-muted-foreground"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                                {rec}
+                              </li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+                    )}
                 </div>
 
                 <div className="flex gap-3 mt-6">
@@ -397,7 +465,11 @@ const Scan = () => {
                 </div>
 
                 <div className="mt-4">
-                  <Button variant="secondary" className="w-full" onClick={() => setShowLocationDialog(true)}>
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={() => setShowLocationDialog(true)}
+                  >
                     Find Nearby Hospitals
                   </Button>
                 </div>
@@ -447,7 +519,9 @@ const Scan = () => {
               <h3 className="text-lg font-semibold text-foreground mb-2">
                 {option.title}
               </h3>
-              <p className="text-sm text-muted-foreground">{option.description}</p>
+              <p className="text-sm text-muted-foreground">
+                {option.description}
+              </p>
             </button>
           ))}
         </div>
@@ -456,9 +530,10 @@ const Scan = () => {
         <div className="medical-card bg-accent/50 border-primary/20">
           <h3 className="font-semibold text-foreground mb-2">How it works</h3>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Our AI-powered scanning technology analyzes your images to detect potential health issues.
-            Results are generated in seconds and stored securely in your health profile.
-            All scans are for informational purposes and should not replace professional medical advice.
+            Our AI-powered scanning technology analyzes your images to detect
+            potential health issues. Results are generated in seconds and stored
+            securely in your health profile. All scans are for informational
+            purposes and should not replace professional medical advice.
           </p>
         </div>
       </div>
