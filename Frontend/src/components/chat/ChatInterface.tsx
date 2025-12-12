@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { useSearchParams } from "react-router-dom";
 import { ChatSidebar } from "./ChatSidebar";
 
 interface Message {
@@ -41,6 +42,17 @@ export function ChatInterface({ className, embedded = false }: ChatInterfaceProp
   const [selectedLanguage, setSelectedLanguage] = useState('en-US');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+  const [searchParams] = useSearchParams();
+
+  // Load chat from URL ID if present
+  useEffect(() => {
+    const chatId = searchParams.get("id");
+    if (chatId) {
+      loadChat(chatId);
+      // Optional: Clear the param from URL without reloading to avoid sticking? 
+      // Nah, keeping it is fine for deep linking.
+    }
+  }, [searchParams]);
 
   const languages = [
     { code: 'en-US', name: 'English' },

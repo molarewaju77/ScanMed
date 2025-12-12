@@ -655,7 +655,7 @@ const History = () => {
                 <div className="bg-muted p-3 rounded-lg text-sm">
                   {selectedItem.preview}
                 </div>
-                <Button className="w-full" onClick={() => navigate("/chat")}>
+                <Button className="w-full" onClick={() => navigate(`/chat?id=${selectedItem.id}`)}>
                   Open Chat
                 </Button>
               </div>
