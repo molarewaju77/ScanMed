@@ -54,4 +54,4 @@ class DeepSeekChat {
     }
 }
 
-export default DeepSeekChat;
+export default DeepSeekChat
