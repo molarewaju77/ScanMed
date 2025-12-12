@@ -32,24 +32,10 @@ const PORT = process.env.PORT || 8000;
 const __dirname = path.resolve();
 
 // CORS Configuration
+// CORS Configuration
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
-
-      // Allow localhost and local network IPs
-      const allowedOrigins = ["http://localhost:5173", "http://localhost:8080"];
-      if (
-        allowedOrigins.indexOf(origin) !== -1 ||
-        origin.startsWith("http://192.168.") ||
-        origin.startsWith("http://10.")
-      ) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: true, // Allow all origins
     credentials: true,
   })
 );
