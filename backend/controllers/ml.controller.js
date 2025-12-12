@@ -1,5 +1,5 @@
 import GeminiChat from "../ml/js/chat/geminiChat.js";
-import DeepSeekChat from "../ml/js/chat/deepSeekChat.js";
+
 import SttWhisper from "../ml/js/speech/sttWhisper.js";
 import TtsOpenAI from "../ml/js/tts/ttsOpenAI.js";
 import { ChatHistory } from "../models/chatHistory.model.js";
@@ -16,9 +16,8 @@ import { TextureAnalyzer } from "../ml/heuristics/skin/TextureAnalyzer.js";
 import fs from 'fs';
 import path from 'path';
 
-// Initialize AI provider (Gemini for Scan, DeepSeek for Chat)
+// Initialize AI provider (Gemini for Scan and Chat)
 const geminiChat = process.env.GEMINI_API_KEY ? new GeminiChat(process.env.GEMINI_API_KEY) : null;
-const deepSeekChat = process.env.DEEPSEEK_API_KEY ? new DeepSeekChat(process.env.DEEPSEEK_API_KEY) : null;
 
 const sttWhisper = process.env.OPENAI_API_KEY ? new SttWhisper(process.env.OPENAI_API_KEY) : null;
 const ttsOpenAI = process.env.OPENAI_API_KEY ? new TtsOpenAI(process.env.OPENAI_API_KEY) : null;
@@ -28,21 +27,21 @@ export const chat = async (req, res) => {
         const { message, history, language, chatId } = req.body;
         const userId = req.userId; // From verifyToken middleware
 
-        // Check if DeepSeek is available for chat
-        if (!deepSeekChat) {
+        // Check if Gemini is available for chat
+        if (!geminiChat) {
             return res.status(500).json({
                 success: false,
-                message: "DeepSeek API not configured. Please add DEEPSEEK_API_KEY to your .env file."
+                message: "Gemini API not configured. Please add GEMINI_API_KEY to your .env file."
             });
         }
 
         let responseText;
         try {
-            // Get AI Response from DeepSeek
-            console.log('Using DeepSeek Chat');
-            responseText = await deepSeekChat.sendMessage(history || [], message, language || 'en');
+            // Get AI Response from Gemini
+            console.log('Using Gemini Chat');
+            responseText = await geminiChat.sendMessage(history || [], message, language || 'en');
         } catch (aiError) {
-            console.error('DeepSeek error:', aiError.message);
+            console.error('Gemini error:', aiError.message);
             throw aiError; // Let outer catch handle fallback
         }
 

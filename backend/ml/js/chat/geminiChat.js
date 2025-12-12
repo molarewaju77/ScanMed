@@ -7,8 +7,14 @@ class GeminiChat {
     }
 
     async sendMessage(history, message, language = 'en') {
+        // Format history for Gemini
+        const formattedHistory = Array.isArray(history) ? history.map(msg => ({
+            role: msg.sender === 'ai' ? 'model' : 'user',
+            parts: [{ text: msg.text }]
+        })) : [];
+
         const chat = this.model.startChat({
-            history: history,
+            history: formattedHistory,
             generationConfig: {
                 maxOutputTokens: 1000,
             },
