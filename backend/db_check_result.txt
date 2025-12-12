@@ -1,1 +1,1 @@
-Error: MONGO_URI is undefined in environment.
+Success: Connected to MongoDB successfully.
