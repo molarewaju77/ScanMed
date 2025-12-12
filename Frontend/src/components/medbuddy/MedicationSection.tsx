@@ -5,6 +5,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import api from "@/lib/api";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 
 interface Medication {
@@ -24,8 +31,13 @@ export function MedicationSection() {
     name: "",
     dosage: "",
     frequency: "",
-    time: "",
   });
+
+  // New State for Detailed Scheduling
+  const [timesPerDay, setTimesPerDay] = useState("1");
+  const [selectedTimes, setSelectedTimes] = useState<string[]>(["09:00"]);
+  const [durationValue, setDurationValue] = useState("7");
+  const [durationUnit, setDurationUnit] = useState("Days");
 
   useEffect(() => {
     fetchMedications();
@@ -47,20 +59,43 @@ export function MedicationSection() {
 
   const handleAddMedication = async () => {
     try {
-      if (!newMed.name || !newMed.dosage || !newMed.frequency) {
-        toast.error("Please fill in all required fields");
+      if (!newMed.name || !newMed.dosage) {
+        toast.error("Please fill in name and dosage");
         return;
       }
 
+      // 1. Calculate End Date
+      const startDate = new Date();
+      const endDate = new Date(startDate);
+      const duration = parseInt(durationValue);
+
+      if (durationUnit === "Days") endDate.setDate(startDate.getDate() + duration);
+      if (durationUnit === "Weeks") endDate.setDate(startDate.getDate() + (duration * 7));
+      if (durationUnit === "Months") endDate.setMonth(startDate.getMonth() + duration);
+
+      // 2. Format Frequency Text
+      const frequencyText = `Daily (${timesPerDay}x)`;
+
+      // 3. Prepare Payload
+      const validTimes = selectedTimes.filter(t => t !== "");
+
       await api.post("/medications", {
-        ...newMed,
-        startDate: new Date(),
-        reminderTimes: [newMed.time],
+        name: newMed.name,
+        dosage: newMed.dosage,
+        frequency: frequencyText,
+        startDate: startDate,
+        endDate: endDate,
+        reminderTimes: validTimes,
+        reminderEnabled: true,
       });
 
-      toast.success("Medication added successfully");
+      toast.success("Medication schedule created");
       setIsAddOpen(false);
-      setNewMed({ name: "", dosage: "", frequency: "", time: "" });
+      // Reset form
+      setNewMed({ name: "", dosage: "", frequency: "" });
+      setTimesPerDay("1");
+      setSelectedTimes(["09:00"]);
+      setDurationValue("7");
       fetchMedications();
     } catch (error) {
       console.error("Error adding medication:", error);
@@ -76,8 +111,15 @@ export function MedicationSection() {
     setMedications(updatedMeds);
 
     try {
-      // Logic from frontend/src/pages/MedBuddy.jsx
-      toast.success("Medication status updated");
+      const newStatus = currentStatus === "Taken" ? "Skipped" : "Taken";
+      await api.post(`/medications/${id}/log`, {
+        status: newStatus,
+        date: new Date()
+      });
+      toast.success(`Medication marked as ${newStatus}`);
+
+      // Refresh to get any other updates if needed, though optimistic is fine
+      // fetchMedications(); 
     } catch (error) {
       console.error("Error updating medication:", error);
       toast.error("Failed to update status");
@@ -131,29 +173,104 @@ export function MedicationSection() {
                   placeholder="e.g. 500mg"
                 />
               </div>
+              {/* Frequency Section */}
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="frequency" className="text-right">
-                  Frequency
-                </Label>
-                <Input
-                  id="frequency"
-                  value={newMed.frequency}
-                  onChange={(e) => setNewMed({ ...newMed, frequency: e.target.value })}
-                  className="col-span-3"
-                  placeholder="e.g. Daily"
-                />
+                <Label className="text-right">Frequency</Label>
+                <div className="col-span-3">
+                  <Select
+                    value={timesPerDay}
+                    onValueChange={(val) => {
+                      setTimesPerDay(val);
+                      // Adjust selectedTimes array size
+                      const count = parseInt(val);
+                      const newTimes = Array(count).fill("09:00");
+                      // Preserve existing values if possible
+                      selectedTimes.forEach((t, i) => {
+                        if (i < count) newTimes[i] = t;
+                      });
+                      setSelectedTimes(newTimes);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Times per day" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Once a day</SelectItem>
+                      <SelectItem value="2">Twice a day</SelectItem>
+                      <SelectItem value="3">3 times a day</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+
+              {/* Dynamic Time Inputs */}
+              {timesPerDay === "1" && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">Timing</Label>
+                  <div className="col-span-3">
+                    <Select
+                      onValueChange={(val) => {
+                        setSelectedTimes([val]);
+                      }}
+                      defaultValue="08:00"
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select timing" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="08:00">Morning (8:00 AM)</SelectItem>
+                        <SelectItem value="14:00">Afternoon (2:00 PM)</SelectItem>
+                        <SelectItem value="20:00">Night (8:00 PM)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+
+              {selectedTimes.map((time, index) => (
+                <div key={index} className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">
+                    {timesPerDay === "1" ? "Exact Time" :
+                      index === 0 ? "Morning" :
+                        index === 1 && timesPerDay === "2" ? "Night" :
+                          index === 1 ? "Afternoon" :
+                            index === 2 ? "Night" : `Time ${index + 1}`}
+                  </Label>
+                  <Input
+                    type="time"
+                    value={time}
+                    onChange={(e) => {
+                      const newTimes = [...selectedTimes];
+                      newTimes[index] = e.target.value;
+                      setSelectedTimes(newTimes);
+                    }}
+                    className="col-span-3"
+                  />
+                </div>
+              ))}
+
+              {/* Duration Section */}
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="time" className="text-right">
-                  Time
-                </Label>
-                <Input
-                  id="time"
-                  type="time"
-                  value={newMed.time}
-                  onChange={(e) => setNewMed({ ...newMed, time: e.target.value })}
-                  className="col-span-3"
-                />
+                <Label className="text-right">Duration</Label>
+                <div className="col-span-3 flex gap-2">
+                  <Input
+                    type="number"
+                    min="1"
+                    value={durationValue}
+                    onChange={(e) => setDurationValue(e.target.value)}
+                    className="w-20"
+                  />
+                  <Select value={durationUnit} onValueChange={setDurationUnit}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Days">Days</SelectItem>
+                      <SelectItem value="Weeks">Weeks</SelectItem>
+                      <SelectItem value="Months">Months</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
             <DialogFooter>
@@ -181,8 +298,8 @@ export function MedicationSection() {
                 <button
                   onClick={() => toggleMedication(med._id, med.status)}
                   className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${med.status === "Taken"
-                      ? "bg-success border-success"
-                      : "border-muted-foreground"
+                    ? "bg-success border-success"
+                    : "border-muted-foreground"
                     }`}
                 >
                   {med.status === "Taken" && (

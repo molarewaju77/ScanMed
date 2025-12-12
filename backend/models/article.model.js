@@ -21,6 +21,10 @@ const articleSchema = new mongoose.Schema(
             type: String,
             required: true,
         },
+        image: {
+            type: String,
+            required: false,
+        },
         author: {
             type: String,
             default: "Scanmed Team",

@@ -24,15 +24,16 @@ const CreateBlog = () => {
 
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(isEditing);
+    const [imageFile, setImageFile] = useState<File | null>(null);
     const [formData, setFormData] = useState({
         title: "",
         category: "",
-        image: "",
         readTime: "5 min read",
         excerpt: "",
         content: "",
         featured: false,
         published: true,
+        image: "" // keep for edit mode existing image
     });
 
     const categories = [
@@ -70,11 +71,24 @@ const CreateBlog = () => {
         setLoading(true);
 
         try {
+            const data = new FormData();
+            data.append("title", formData.title);
+            data.append("category", formData.category);
+            data.append("readTime", formData.readTime);
+            data.append("excerpt", formData.excerpt);
+            data.append("content", formData.content);
+            data.append("featured", String(formData.featured));
+            data.append("published", String(formData.published));
+
+            if (imageFile) {
+                data.append("image", imageFile);
+            }
+
             if (isEditing) {
-                await api.put(`/articles/${id}`, formData);
+                await api.put(`/articles/${id}`, data);
                 toast.success("Article updated successfully");
             } else {
-                await api.post("/articles", formData);
+                await api.post("/articles", data);
                 toast.success("Article created successfully");
             }
             navigate("/admin/blogs");
@@ -150,17 +164,36 @@ const CreateBlog = () => {
                                 value={formData.readTime}
                                 onChange={(e) => setFormData({ ...formData, readTime: e.target.value })}
                                 placeholder="e.g. 5 min read"
+                                required
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="image">Image URL</Label>
-                            <Input
-                                id="image"
-                                value={formData.image}
-                                onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                                placeholder="https://..."
-                            />
+                            <Label htmlFor="image">Article Image</Label>
+                            <div className="flex flex-col gap-4">
+                                {(formData.image || imageFile) && (
+                                    <div className="h-40 w-full md:w-1/2 relative rounded-lg overflow-hidden border">
+                                        <img
+                                            src={imageFile ? URL.createObjectURL(imageFile) : formData.image}
+                                            alt="Preview"
+                                            className="w-full h-full object-cover"
+                                        />
+                                    </div>
+                                )}
+                                <Input
+                                    id="image"
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                        if (e.target.files && e.target.files[0]) {
+                                            setImageFile(e.target.files[0]);
+                                        }
+                                    }}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Upload an image (JPG, PNG, WEBP)
+                                </p>
+                            </div>
                         </div>
                     </div>
 

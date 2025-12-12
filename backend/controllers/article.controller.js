@@ -225,6 +225,9 @@ export const createArticle = async (req, res) => {
     try {
         const { title, content, excerpt, category, image, readTime, tags, featured, published } = req.body;
 
+        console.log("CreateArticle Body:", req.body);
+        console.log("CreateArticle File:", req.file);
+
         // Generate slug from title
         const slug = title
             .toLowerCase()
@@ -237,13 +240,18 @@ export const createArticle = async (req, res) => {
             return res.status(400).json({ success: false, message: "Article with this title already exists" });
         }
 
+        let imagePath = image;
+        if (req.file) {
+            imagePath = `${process.env.VITE_API_URL || "http://localhost:8000"}/uploads/${req.file.filename}`;
+        }
+
         const article = new Article({
             title,
             slug,
             content,
             excerpt,
             category,
-            image,
+            image: imagePath,
             readTime,
             tags,
             featured,
@@ -268,6 +276,10 @@ export const updateArticle = async (req, res) => {
     try {
         const { id } = req.params;
         const updates = req.body;
+
+        if (req.file) {
+            updates.image = `${process.env.VITE_API_URL || "http://localhost:8000"}/uploads/${req.file.filename}`;
+        }
 
         // If title is updated, regenerate slug
         if (updates.title) {

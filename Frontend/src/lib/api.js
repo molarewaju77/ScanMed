@@ -5,9 +5,7 @@ const api = axios.create({
         ? `${import.meta.env.VITE_API_URL}/api`
         : (window.location.hostname === 'localhost' ? 'http://localhost:8000/api' : '/api'),
     withCredentials: true,
-    headers: {
-        'Content-Type': 'application/json',
-    },
+    headers: {},
 });
 
 // Add a request interceptor to attach the token

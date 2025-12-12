@@ -232,7 +232,7 @@ const Scan = () => {
 
         // Feedback Logic
         if (!isCentered) {
-          setInstructionText("Center your face in the circle");
+          setInstructionText(selectedScan === 'teeth' ? "Center your mouth" : "Center your face in the circle");
           setScanProgress(0);
         } else if (!isStraight) {
           setInstructionText("Look straight ahead");
@@ -260,7 +260,11 @@ const Scan = () => {
 
       } else {
         // No Face
-        setInstructionText("Position your face in the frame");
+        if (selectedScan === 'teeth') {
+          setInstructionText("Open your mouth & show teeth");
+        } else {
+          setInstructionText("Position your face in the frame");
+        }
         setScanProgress(0);
         setScanReady(false);
       }

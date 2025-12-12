@@ -1,16 +1,36 @@
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from "recharts";
-
-const data = [
-  { day: "Mon", adherence: 100 },
-  { day: "Tue", adherence: 80 },
-  { day: "Wed", adherence: 100 },
-  { day: "Thu", adherence: 60 },
-  { day: "Fri", adherence: 100 },
-  { day: "Sat", adherence: 40 },
-  { day: "Sun", adherence: 0 },
-];
+import { useState, useEffect } from "react";
+import api from "@/lib/api";
 
 export function WeeklyAdherenceChart() {
+  const [data, setData] = useState([
+    { day: "Mon", adherence: 0 },
+    { day: "Tue", adherence: 0 },
+    { day: "Wed", adherence: 0 },
+    { day: "Thu", adherence: 0 },
+    { day: "Fri", adherence: 0 },
+    { day: "Sat", adherence: 0 },
+    { day: "Sun", adherence: 0 },
+  ]);
+
+  useEffect(() => {
+    fetchAdherence();
+    // Refresh periodically or listen to events if possible
+    const interval = setInterval(fetchAdherence, 10000); // Poll every 10s to reflect "Take" actions
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchAdherence = async () => {
+    try {
+      const res = await api.get("/medications/adherence");
+      if (res.data.success && res.data.adherence) {
+        setData(res.data.adherence);
+      }
+    } catch (error) {
+      console.error("Failed to fetch adherence", error);
+    }
+  };
+
   const getBarColor = (value: number) => {
     if (value >= 80) return "hsl(var(--success))";
     if (value >= 50) return "hsl(var(--warning))";
@@ -21,7 +41,7 @@ export function WeeklyAdherenceChart() {
     <div className="medical-card">
       <div className="mb-6">
         <h2 className="text-lg font-semibold text-foreground">Weekly Adherence</h2>
-        <p className="text-sm text-muted-foreground">Your medication compliance this week</p>
+        <p className="text-sm text-muted-foreground">Your medication compliance over the last 7 days</p>
       </div>
 
       <div className="h-48">
@@ -43,7 +63,7 @@ export function WeeklyAdherenceChart() {
             />
             <Bar dataKey="adherence" radius={[4, 4, 0, 0]}>
               {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={getBarColor(entry.adherence)} />
+                <Cell key={`cell-${index}`} fill={getBarColor(entry.adherence || 0)} />
               ))}
             </Bar>
           </BarChart>

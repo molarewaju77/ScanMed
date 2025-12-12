@@ -22,6 +22,11 @@ import hospitalRoutes from "./routes/hospital.route.js";
 import doctorRoutes from "./routes/doctor.route.js";
 import adminManagementRoutes from "./routes/adminManagement.route.js";
 import setupReminderJob from "./jobs/reminder.job.js";
+import setupCleanupJob from "./jobs/cleanup.job.js";
+
+// ... existing code
+
+
 
 // DB Connection
 import { connectDB } from "./db/connectDb.js";
@@ -90,5 +95,6 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
   connectDB();
   setupReminderJob();
+  setupCleanupJob();
   console.log(`Server is running on port: ${PORT}`);
 });

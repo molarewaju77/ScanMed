@@ -15,7 +15,9 @@ import Chat from "./pages/Chat";
 import History from "./pages/History";
 import MedBuddy from "./pages/MedBuddy";
 import HealthBlog from "./pages/HealthBlog";
+import BlogDetails from "./pages/BlogDetails";
 import Settings from "./pages/Settings";
+import Trash from "./pages/Trash";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
 import VerifyEmail from "./pages/VerifyEmail";
@@ -232,6 +234,14 @@ const AppContent = () => {
               element={
                 <ProtectedRoute>
                   <HealthBlog />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/health-blog/:id"
+              element={
+                <ProtectedRoute>
+                  <BlogDetails />
                 </ProtectedRoute>
               }
             />

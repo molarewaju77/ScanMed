@@ -1,4 +1,5 @@
 import { MainLayout } from "@/components/layout/MainLayout";
+import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import api from "@/lib/api";
@@ -36,6 +37,7 @@ const getCategoryColor = (category: string) => {
 };
 
 const HealthBlog = () => {
+  const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState("all");
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,6 +108,7 @@ const HealthBlog = () => {
                 <article
                   key={post._id}
                   className="medical-card-hover overflow-hidden group cursor-pointer"
+                  onClick={() => navigate(`/health-blog/${post._id}`)}
                 >
                   <div className="relative h-40 -mx-6 -mt-6 mb-4 overflow-hidden">
                     <img
@@ -135,7 +138,7 @@ const HealthBlog = () => {
                     <span className="text-xs text-muted-foreground">
                       {post.readTime}
                     </span>
-                    <span className="text-sm font-medium text-primary group-hover:underline">
+                    <span className="text-sm font-medium text-primary group-hover:underline z-10">
                       Read More →
                     </span>
                   </div>

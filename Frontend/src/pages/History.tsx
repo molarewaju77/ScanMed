@@ -88,7 +88,7 @@ const History = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<TabType>("chat");
   const [loading, setLoading] = useState(true);
-  const [showTrash, setShowTrash] = useState(false);
+
 
   const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
   const [scanHistory, setScanHistory] = useState<ScanHistory[]>([]);
@@ -110,12 +110,12 @@ const History = () => {
 
   useEffect(() => {
     fetchData();
-  }, [showTrash]);
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const params = { includeDeleted: showTrash };
+      const params = { includeDeleted: false };
       const [scansRes, medsRes, apptsRes, chatsRes, readingRes] =
         await Promise.all([
           api.get("/health-scans", { params }),
@@ -296,39 +296,7 @@ const History = () => {
     }
   };
 
-  const handleRestore = async (
-    e: React.MouseEvent,
-    id: string,
-    type: string
-  ) => {
-    e.stopPropagation();
-    try {
-      let endpoint = "";
-      switch (type) {
-        case "scans":
-          endpoint = `/health-scans/${id}/restore`;
-          break;
-        case "medication":
-          endpoint = `/medications/${id}/restore`;
-          break;
-        case "appointment":
-          endpoint = `/appointments/${id}/restore`;
-          break;
-        case "chat":
-          endpoint = `/chats/${id}/restore`;
-          break;
-        case "reading":
-          return;
-      }
 
-      await api.patch(endpoint);
-      toast.success("Item restored");
-      fetchData(); // Refresh list
-    } catch (error) {
-      console.error("Error restoring item:", error);
-      toast.error("Failed to restore item");
-    }
-  };
 
   const getStatusColor = (status: string) => {
     if (status === "success" || status === "Active" || status === "Healthy" || status === "Good")
@@ -355,12 +323,12 @@ const History = () => {
           </div>
           <div className="flex gap-2">
             <Button
-              variant={showTrash ? "destructive" : "outline"}
+              variant="outline"
               size="sm"
-              onClick={() => setShowTrash(!showTrash)}
+              onClick={() => navigate("/history/trash")}
             >
               <Trash2 className="h-4 w-4 mr-2" />
-              {showTrash ? "View Active" : "View Trash"}
+              View Trash
             </Button>
             <Button variant="outline" size="sm">
               <Download className="h-4 w-4 mr-2" />
@@ -433,24 +401,14 @@ const History = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {showTrash ? (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={(e) => handleRestore(e, chat.id, "chat")}
-                        >
-                          <RefreshCcw className="w-4 h-4 text-green-500" />
-                        </Button>
-                      ) : (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={(e) => handleDelete(e, chat.id, "chat")}
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => handleDelete(e, chat.id, "chat")}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
                       <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
                     </div>
                   </div>
@@ -556,24 +514,14 @@ const History = () => {
                           {(item as MedBuddyHistory).status}
                         </span>
                       )}
-                      {showTrash ? (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={(e) => handleRestore(e, item.id, item.type)}
-                        >
-                          <RefreshCcw className="w-4 h-4 text-green-500" />
-                        </Button>
-                      ) : (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={(e) => handleDelete(e, item.id, item.type)}
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => handleDelete(e, item.id, item.type)}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
                     </div>
                   </div>
                 ))}
