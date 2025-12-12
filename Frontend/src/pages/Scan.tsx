@@ -92,7 +92,13 @@ const Scan = () => {
   const [showLightingWarning, setShowLightingWarning] = useState(false);
   const [isStable, setIsStable] = useState(true);
   const [blurStatus, setBlurStatus] = useState<"focused" | "blurry">("focused");
+  /* OLD CODE
   const [scanReady, setScanReady] = useState(false);
+  */
+  // NEW CODE
+  const [scanReady, setScanReady] = useState(false); // Kept for logic compatibility
+  const [scanProgress, setScanProgress] = useState(0); // 0 to 100
+  const [instructionText, setInstructionText] = useState("Position your face in the circle");
 
   const previousFrameData = useRef<Uint8ClampedArray | null>(null);
 
@@ -200,10 +206,37 @@ const Scan = () => {
         const isBlurry = avgEdge < 3;
         setBlurStatus(isBlurry ? "blurry" : "focused");
 
+        /* OLD CODE - LOGIC
         // GLOBAL READY STATE
         // Ready if: Good Lighting AND Stable AND Focused
         const isReady = lighting === "good" && !isMoving && !isBlurry;
         setScanReady(isReady);
+        */
+
+        // NEW CODE - OPAY LOGIC
+        const isReady = lighting === "good" && !isMoving && !isBlurry;
+        setScanReady(isReady);
+
+        // Dynamic Instruction "Feathers"
+        if (lighting === "too_dark") {
+          setInstructionText("Lighten up your face");
+          setScanProgress(0);
+        } else if (lighting === "too_bright") {
+          setInstructionText("Too bright, move away from light");
+          setScanProgress(0);
+        } else if (isMoving) {
+          setInstructionText("Straighten your head & hold still"); // OPay style text
+          setScanProgress(0);
+        } else if (isBlurry) {
+          setInstructionText("Clean your camera lens"); // Or "Move closer/focused"
+          setScanProgress(0);
+        } else {
+          setInstructionText("Hold still...");
+          setScanProgress((prev) => {
+            const newProgress = prev + 5; // Fill up in ~1-2 seconds (check interval 500ms? maybe too slow, assumes faster interval or bigger jump)
+            return newProgress > 100 ? 100 : newProgress;
+          });
+        }
       }
     }
   }, []);
@@ -211,10 +244,12 @@ const Scan = () => {
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (cameraActive && !isScanning && !scanComplete) {
-      interval = setInterval(checkQuality, 500); // Check every 500ms
+      interval = setInterval(checkQuality, 100); // NEW CODE: Faster check (100ms) for smooth progress ring
     }
     return () => clearInterval(interval);
   }, [cameraActive, isScanning, scanComplete, checkQuality]);
+
+  // AUTO-CAPTURE REMOVED - Manual trigger only as requested
 
   const captureImage = () => {
     if (videoRef.current) {
@@ -354,7 +389,7 @@ const Scan = () => {
 
           {!scanComplete ? (
             <>
-              {/* Camera View */}
+              {/* OLD CODE UI - PRESERVED
               <div className="medical-card p-4">
                 <div className="relative aspect-[4/3] rounded-xl overflow-hidden bg-muted">
                   {cameraActive ? (
@@ -367,8 +402,6 @@ const Scan = () => {
                         className="w-full h-full object-cover transition-transform duration-200"
                         style={{ transform: `scale(${zoomLevel})` }}
                       />
-
-                      {/* Targeting Overlays */}
                       <div className="absolute inset-0 pointer-events-none z-0 flex items-center justify-center">
                         {selectedScan === "eye" && (
                           <div className="w-64 h-32 border-2 border-white/50 rounded-[50%] box-content shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] flex items-center justify-center">
@@ -382,8 +415,6 @@ const Scan = () => {
                           <div className="w-56 h-72 border-2 border-white/50 rounded-[4rem] box-content shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]" />
                         )}
                       </div>
-
-                      {/* Zoom Controls */}
                       <div className="absolute bottom-4 left-0 right-0 px-8 flex items-center gap-4 z-10">
                         <ZoomOut className="w-4 h-4 text-white" />
                         <input
@@ -397,8 +428,7 @@ const Scan = () => {
                         />
                         <ZoomIn className="w-4 h-4 text-white" />
                       </div>
-                      {/* Real-time Quality Badges */}
-                      {(showLightingWarning || !isStable || blurStatus === 'blurry') && !isScanning && (
+                      {(showLightingWarning || !isStable || blurStatus === "blurry") && !isScanning && (
                         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex flex-col gap-2 items-center w-full pointer-events-none">
                           {showLightingWarning && (
                             <Badge variant="destructive" className="flex items-center gap-1 shadow-lg animate-pulse">
@@ -414,7 +444,7 @@ const Scan = () => {
                               Hold Camera Steady
                             </Badge>
                           )}
-                          {isStable && blurStatus === 'blurry' && !showLightingWarning && (
+                          {isStable && blurStatus === "blurry" && !showLightingWarning && (
                             <Badge variant="secondary" className="flex items-center gap-1 shadow-lg bg-orange-500 text-white animate-pulse">
                               <Eye className="w-3 h-3" />
                               Focusing...
@@ -422,36 +452,7 @@ const Scan = () => {
                           )}
                         </div>
                       )}
-
-                      {/* Invalid Scan / Wrong Body Part Warning Overlay */}
-                      {invalidScanError && !isScanning && (
-                        <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center p-4 z-20 backdrop-blur-md">
-                          <AlertCircle className="w-12 h-12 text-destructive mb-3" />
-                          <h3 className="text-lg font-bold text-foreground mb-1">
-                            Incorrect Scan Target
-                          </h3>
-                          <p className="text-sm text-center text-muted-foreground mb-4 px-4">
-                            {invalidScanError}
-                          </p>
-                          <div className="flex gap-2 w-full max-w-xs flex-col">
-                            <Button
-                              variant="default"
-                              className="w-full gradient-medical"
-                              onClick={() => navigate("/chat")}
-                            >
-                              <Sparkles className="w-4 h-4 mr-2" />
-                              Go to AI Symptom Checker
-                            </Button>
-                            <Button
-                              variant="outline"
-                              className="w-full"
-                              onClick={() => setInvalidScanError(null)}
-                            >
-                              Try Again
-                            </Button>
-                          </div>
-                        </div>
-                      )}
+                      
                       {isScanning && (
                         <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center">
                           <div className="w-14 h-14 rounded-full border-4 border-primary border-t-transparent animate-spin mb-4" />
@@ -499,7 +500,6 @@ const Scan = () => {
                     </div>
                   )}
                 </div>
-
                 <Button
                   className={cn("w-full transition-all duration-300", !scanReady ? "bg-muted text-muted-foreground" : "gradient-medical text-primary-foreground")}
                   onClick={handleStartScan}
@@ -508,10 +508,105 @@ const Scan = () => {
                   <Camera className="w-4 h-4 mr-2" />
                   {isScanning ? "Scanning..." : !scanReady ? "Adjust Camera..." : "Capture & Scan"}
                 </Button>
-
-                {/* Upload Button Removed as per request */}
               </div>
+              */}
 
+              {/* NEW CODE UI - OPAY STYLE */}
+              <div className="relative flex flex-col items-center justify-center min-h-[500px] w-full bg-black/5 rounded-3xl overflow-hidden">
+
+                {/* Fixed Container for Stability */}
+                <div className="relative w-[320px] h-[320px] flex items-center justify-center">
+
+                  {/* Ring SVG Layer */}
+                  <div className="absolute inset-0 z-20 pointer-events-none">
+                    <svg className="w-full h-full transform -rotate-90">
+                      {/* Background Track */}
+                      <circle
+                        cx="160" cy="160" r="148"
+                        stroke="white" strokeWidth="4" fill="none" opacity="0.3"
+                      />
+                      {/* Progress Fill */}
+                      <circle
+                        cx="160" cy="160" r="148"
+                        stroke="#10B981" strokeWidth="6" fill="none"
+                        strokeDasharray={2 * Math.PI * 148}
+                        strokeDashoffset={2 * Math.PI * 148 * (1 - scanProgress / 100)}
+                        strokeLinecap="round"
+                        className="transition-all duration-300 ease-linear"
+                      />
+                    </svg>
+                  </div>
+
+                  {/* Camera Video Source - Circular Mask */}
+                  <div className="w-[290px] h-[290px] rounded-full overflow-hidden border-4 border-white/20 shadow-2xl relative z-10 bg-black">
+                    {cameraActive ? (
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className="w-full h-full object-cover transform mirror-x"
+                        style={{ transform: `scale(${zoomLevel}) scaleX(-1)` }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-white/50">
+                        <Camera className="w-12 h-12 mb-2" />
+                        <span className="text-xs">Camera Off</span>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+
+                {/* Instructions "Feather" Area - FIXED Position below circle */}
+                <div className="mt-8 h-20 text-center px-4 flex flex-col items-center justify-start w-full max-w-sm">
+                  {/* Primary Instruction */}
+                  <h3 className={cn(
+                    "text-xl font-bold transition-all duration-300",
+                    scanProgress > 0 ? "text-emerald-600 scale-105" : "text-foreground"
+                  )}>
+                    {instructionText}
+                  </h3>
+
+                  {/* Secondary Status / Error */}
+                  {cameraError && (
+                    <p className="text-destructive text-sm mt-2 font-medium bg-destructive/10 px-3 py-1 rounded-full">
+                      {cameraError}
+                    </p>
+                  )}
+                </div>
+
+                {/* Minimal Controls */}
+                <Button
+                  size="lg"
+                  className={cn(
+                    "mt-4 rounded-full px-12 transition-all duration-500 shadow-xl",
+                    scanProgress >= 100 ? "bg-emerald-500 hover:bg-emerald-600 scale-110 shadow-emerald-500/50 animate-pulse" : "gradient-medical"
+                  )}
+                  onClick={handleStartScan}
+                  disabled={isScanning || !cameraActive || (scanProgress < 20 && !scanReady)}
+                >
+                  {isScanning ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                      Analyzing...
+                    </>
+                  ) : scanProgress >= 100 ? (
+                    <>
+                      <Sparkles className="w-5 h-5 mr-2" />
+                      Tap to Scan
+                    </>
+                  ) : (
+                    "Hold Steady"
+                  )}
+                </Button>
+
+                {/* Manual trigger note */}
+                <p className="text-xs text-muted-foreground mt-4 opacity-70">
+                  {scanProgress >= 100 ? "Ready to Scan" : "Hold still to unlock scan"}
+                </p>
+
+              </div>
               {/* Instructions */}
               <div className="medical-card">
                 <h3 className="font-semibold text-foreground mb-3">
@@ -716,7 +811,7 @@ const Scan = () => {
             location={userLocation}
           />
         </div>
-      </MainLayout>
+      </MainLayout >
     );
   }
 

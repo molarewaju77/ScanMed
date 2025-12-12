@@ -36,7 +36,7 @@ const __dirname = path.resolve();
 // CORS Configuration
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://scan-med.vercel.app"],
+    origin: ["http://localhost:5173", "http://localhost:8080", "https://scan-med.vercel.app"],
     credentials: true,
   })
 );
