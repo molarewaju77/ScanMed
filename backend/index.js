@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import path from "path";
+import helmet from "helmet";
 
 // Routes
 import authRoutes from "./routes/auth.route.js";
@@ -44,6 +45,22 @@ app.use(
 app.use(express.json()); // allows us to parse incoming requests:req.body
 app.use(cookieParser()); // allows us to parse incoming cookies
 app.use("/uploads", express.static("uploads"));
+
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "blob:"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "blob:", "https://scanmed-backend.onrender.com"],
+        connectSrc: ["'self'", "https://scanmed-backend.onrender.com"],
+      },
+    },
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 
 // Routes
 app.use("/api/auth", authRoutes);
