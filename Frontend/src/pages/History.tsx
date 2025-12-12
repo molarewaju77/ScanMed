@@ -493,7 +493,7 @@ const History = () => {
                           </span>
                         )}
                       </div>
-                      {showTrash ? (
+                      {/* {showTrash ? (
                         <Button
                           size="icon"
                           variant="ghost"
@@ -510,7 +510,7 @@ const History = () => {
                         >
                           <Trash2 className="w-4 h-4 text-destructive" />
                         </Button>
-                      )}
+                      )} */}
                     </div>
                   </div>
                 ))}

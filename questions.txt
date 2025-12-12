@@ -1,0 +1,10 @@
+void main(){
+
+ 	List <int> scores [100, 50, 30, 40, 80, 90, 120, 10]
+
+ 		for(score in scores.where(s) => s > 50  ){
+
+ 				print("the total score is $score");
+ 								}
+ 
+}

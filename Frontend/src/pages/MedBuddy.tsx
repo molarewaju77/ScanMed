@@ -19,7 +19,7 @@ const MedBuddy = () => {
           <WeeklyAdherenceChart />
         </div>
 
-        <AppointmentsCard />
+        {/* <AppointmentsCard /> */}
       </div>
     </MainLayout>
   );

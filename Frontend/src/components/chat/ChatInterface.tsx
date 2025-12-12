@@ -403,16 +403,9 @@ export function ChatInterface({ className, embedded = false }: ChatInterfaceProp
             <Button
               variant="ghost"
               size="icon"
-              className="text-muted-foreground hover:text-foreground shrink-0"
-            >
-              <Paperclip className="w-5 h-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
               onClick={handleVoiceRecord}
               className={cn(
-                "shrink-0 transition-colors",
+                "shrink-0 transition-colors bg-muted hover:bg-muted/80",
                 isRecording
                   ? "text-destructive bg-destructive/10 hover:bg-destructive/20 animate-pulse"
                   : "text-muted-foreground hover:text-foreground"

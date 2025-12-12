@@ -1,4 +1,5 @@
-import GeminiChat from "../ml/js/chat/geminiChat.js";
+// import GeminiChat from "../ml/js/chat/geminiChat.js";
+import GroqChat from "../ml/js/chat/groqChat.js";
 
 import SttWhisper from "../ml/js/speech/sttWhisper.js";
 import TtsOpenAI from "../ml/js/tts/ttsOpenAI.js";
@@ -16,8 +17,8 @@ import { TextureAnalyzer } from "../ml/heuristics/skin/TextureAnalyzer.js";
 import fs from 'fs';
 import path from 'path';
 
-// Initialize AI provider (Gemini for Scan and Chat)
-const geminiChat = process.env.GEMINI_API_KEY ? new GeminiChat(process.env.GEMINI_API_KEY) : null;
+// Initialize AI provider (Groq for Scan and Chat)
+const chatInstance = process.env.GROQ_API_KEY ? new GroqChat(process.env.GROQ_API_KEY) : null;
 
 const sttWhisper = process.env.OPENAI_API_KEY ? new SttWhisper(process.env.OPENAI_API_KEY) : null;
 const ttsOpenAI = process.env.OPENAI_API_KEY ? new TtsOpenAI(process.env.OPENAI_API_KEY) : null;
@@ -28,18 +29,18 @@ export const chat = async (req, res) => {
         const userId = req.userId; // From verifyToken middleware
 
         // Check if Gemini is available for chat
-        if (!geminiChat) {
+        if (!chatInstance) {
             return res.status(500).json({
                 success: false,
-                message: "Gemini API not configured. Please add GEMINI_API_KEY to your .env file."
+                message: "Groq API not configured. Please add GROQ_API_KEY to your .env file."
             });
         }
 
         let responseText;
         try {
-            // Get AI Response from Gemini
-            console.log('Using Gemini Chat');
-            responseText = await geminiChat.sendMessage(history || [], message, language || 'en');
+            // Get AI Response from Groq
+            console.log('Using Groq Chat');
+            responseText = await chatInstance.sendMessage(history || [], message, language || 'en');
         } catch (aiError) {
             console.error('Gemini error:', aiError.message);
             throw aiError; // Let outer catch handle fallback
@@ -199,18 +200,19 @@ export const analyzeFace = async (req, res) => {
             // If Invalid: status="Invalid", healthScore=0, findings=[], summary="Reason..."
         }`;
 
-        // Try AI vision analysis with Gemini
-        let useHeuristics = !geminiChat;
+        // Try AI vision analysis with Groq
+        let useHeuristics = !chatInstance;
 
-        if (geminiChat) {
+        if (chatInstance) {
             try {
-                // Call Gemini Vision API
-                console.log('Using Gemini for image analysis...');
-                jsonResponse = await geminiChat.analyzeImage(
+                // Call Groq Vision API
+                console.log('Using Groq for image analysis...');
+                jsonResponse = await chatInstance.analyzeImage(
                     req.file.buffer,
                     req.file.mimetype,
                     fullPrompt
                 );
+                console.log("Groq Raw Response:", jsonResponse);
             } catch (apiError) {
                 console.error('Gemini Vision Error:', apiError.message);
                 console.log("Falling back to Heuristic Engine...");
@@ -527,7 +529,8 @@ export const analyzeFace = async (req, res) => {
                 needsHospital: analysis.needsHospital || false,
                 healthScore: analysis.healthScore,
                 findings: analysis.findings || [],
-                status: analysis.status
+                findings: analysis.findings || [],
+                status: scan.status // Use the DB status which guarantees a value
             }
         });
     } catch (error) {
