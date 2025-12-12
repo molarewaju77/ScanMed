@@ -45,9 +45,12 @@ export const signup = async (req, res) => {
     user.verificationTokenExpiresAt = undefined;
     await user.save();
 
+    const token = generateTokenAndSetCookie(res, user._id);
+
     res.status(201).json({
       success: true,
       message: "User created successfully",
+      token,
       user: {
         ...user._doc,
         password: undefined,
@@ -78,9 +81,12 @@ export const verifyEmail = async (req, res) => {
 
     // await sendWelcomeEmail(user.email, user.name);
 
+    const token = generateTokenAndSetCookie(res, user._id);
+
     res.status(200).json({
       success: true,
       message: "Email verified successfully",
+      token,
       user: {
         ...user._doc,
         password: undefined,
@@ -113,7 +119,7 @@ export const login = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid credentials" });
     }
 
-    generateTokenAndSetCookie(res, user._id);
+    const token = generateTokenAndSetCookie(res, user._id);
 
     user.lastLogin = new Date();
     await user.save();
@@ -121,6 +127,7 @@ export const login = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Logged in successfully",
+      token,
       user: {
         ...user._doc,
         password: undefined,
