@@ -50,6 +50,7 @@ const Auth = () => {
             description: "You have successfully logged in.",
           });
           localStorage.setItem("user", JSON.stringify(response.data.user));
+          if (response.data.token) localStorage.setItem("token", response.data.token);
           navigate("/");
         }
       } else {
@@ -101,6 +102,7 @@ const Auth = () => {
                 "user",
                 JSON.stringify(loginResponse.data.user)
               );
+              if (loginResponse.data.token) localStorage.setItem("token", loginResponse.data.token);
               navigate("/");
             }
           } catch (loginError) {
@@ -292,8 +294,8 @@ const Auth = () => {
                 {isLoading
                   ? "Please wait..."
                   : isLogin
-                  ? "Sign In"
-                  : "Create Account"}
+                    ? "Sign In"
+                    : "Create Account"}
               </Button>
             </form>
 
