@@ -190,9 +190,9 @@ const AppContent = () => {
             <Route
               path="/"
               element={
-                <ProtectedRoute>
-                  <Index />
-                </ProtectedRoute>
+                // <ProtectedRoute>
+                <Index />
+                // </ProtectedRoute>
               }
             />
             <Route

@@ -5,7 +5,7 @@ import path from "path";
 export default defineConfig(({ mode }) => ({
   server: {
     host: "0.0.0.0", // Allows network access
-    port: 5173,
+    port: 8080,
   },
   plugins: [react()].filter(Boolean),
   resolve: {
