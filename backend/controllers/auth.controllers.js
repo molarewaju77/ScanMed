@@ -94,17 +94,22 @@ export const verifyEmail = async (req, res) => {
 
 export const login = async (req, res) => {
   const { email, password } = req.body;
+  console.log("Login attempt for:", email); // Log email
+
   if (!email || !password) {
+    console.log("Login failed: Missing email or password");
     return res.status(400).json({ success: false, message: "Email and password required" });
   }
   try {
     const user = await User.findOne({ email }).select("+password"); // explicitly select password
     if (!user) {
+      console.log("Login failed: User not found for email", email);
       return res.status(400).json({ success: false, message: "Invalid credentials" });
     }
 
     const isPasswordValid = await bcryptjs.compare(password, user.password);
     if (!isPasswordValid) {
+      console.log("Login failed: Invalid password for user", email);
       return res.status(400).json({ success: false, message: "Invalid credentials" });
     }
 

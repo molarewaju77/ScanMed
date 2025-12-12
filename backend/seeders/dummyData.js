@@ -3,6 +3,7 @@ import { User } from "../models/user.model.js";
 import { Doctor } from "../models/doctor.model.js";
 import { Hospital } from "../models/hospital.model.js";
 import dotenv from "dotenv";
+import bcryptjs from "bcryptjs";
 
 dotenv.config();
 
@@ -10,7 +11,7 @@ const dummyUsers = {
     superadmins: [
         { name: "Super Admin", email: "superadmin@scanmed.com", password: "SuperAdmin123!", role: "superadmin" },
         { name: "Micheal", email: "michaelolarewaju@gmail.com", password: "Welcome123.", role: "admin" },
-        { name: "Micheal", email: "makindeolasubomi3@gmail.com", password: "Welcome123.", role: "admin" }
+        { name: "Micheal", email: "makindeolasubomi3@gmail.com", password: "Welcome123.", role: "admin" },
         { name: "Micheal", email: "naheematakinyemi@@gmail.com", password: "Welcome123.", role: "admin" }
     ],
     admins: [
@@ -105,10 +106,11 @@ async function seedDatabase() {
         console.log("✅ Connected to MongoDB");
 
         // Clear existing data (optional - comment out if you want to keep existing data)
-        // await User.deleteMany({});
-        // await Doctor.deleteMany({});
-        // await Hospital.deleteMany({});
-        // console.log("🗑️  Cleared existing data");
+        // Clear existing data
+        await User.deleteMany({});
+        await Doctor.deleteMany({});
+        await Hospital.deleteMany({});
+        console.log("🗑️  Cleared existing data");
 
         // Create hospitals first
         console.log("\n🏥 Creating hospitals...");
@@ -128,8 +130,14 @@ async function seedDatabase() {
         console.log("\n👥 Creating users...");
         const createdUsers = [];
         for (const userData of allUsers) {
+            // Hash password before creating user
+            // Note: Since we are using User.create(), and there is no pre-save hook in the model shown,
+            // we must hash it here manually.
+            const hashedPassword = await bcryptjs.hash(userData.password, 10);
+
             const user = await User.create({
                 ...userData,
+                password: hashedPassword,
                 isVerified: true // Auto-verify for testing
             });
             createdUsers.push(user);
