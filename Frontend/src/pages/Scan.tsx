@@ -1,6 +1,7 @@
 // import { useState, useRef, useEffect } from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { FilesetResolver, FaceLandmarker, DrawingUtils } from "@mediapipe/tasks-vision"; // MediaPipe
 import {
   Eye,
   Smile,
@@ -144,110 +145,122 @@ const Scan = () => {
     }
   }, [cameraActive, selectedScan]);
 
-  const checkQuality = useCallback(() => {
-    if (videoRef.current && videoRef.current.readyState === 4) {
-      const canvas = document.createElement("canvas");
-      // Use smaller size for performance
-      canvas.width = 320;
-      canvas.height = 240;
-      const ctx = canvas.getContext("2d");
+  // MediaPipe State
+  const [faceLandmarker, setFaceLandmarker] = useState<FaceLandmarker | null>(null);
+  const [webcamRunning, setWebcamRunning] = useState(false);
+  const lastVideoTimeRef = useRef(-1);
+  const requestRef = useRef<number>();
 
-      if (ctx) {
-        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-
-        let r, g, b, avg;
-        let colorSum = 0;
-        let edgeScore = 0; // Simple blur proxy via edge intensity
-        let motionScore = 0; // Frame difference
-
-        // Scan pixels
-        for (let i = 0; i < data.length; i += 4) {
-          r = data[i];
-          g = data[i + 1];
-          b = data[i + 2];
-          avg = (r + g + b) / 3;
-          colorSum += avg;
-
-          // Edge detection (compare with neighbor) - Horizontal only for speed
-          if (i > 4) {
-            const prevAvg = (data[i - 4] + data[i - 3] + data[i - 2]) / 3;
-            edgeScore += Math.abs(avg - prevAvg);
-          }
-
-          // Motion detection
-          if (previousFrameData.current) {
-            motionScore += Math.abs(avg - ((previousFrameData.current[i] + previousFrameData.current[i + 1] + previousFrameData.current[i + 2]) / 3));
-          }
-        }
-
-        // Save current frame for next motion check
-        previousFrameData.current = new Uint8ClampedArray(data);
-
-        const totalPixels = data.length / 4;
-        const brightness = Math.floor(colorSum / totalPixels);
-        const avgEdge = edgeScore / totalPixels;
-        const avgMotion = motionScore / totalPixels;
-
-        // 1. Lighting Check
-        let lighting: "good" | "too_dark" | "too_bright" = "good";
-        if (brightness < 60) lighting = "too_dark";
-        else if (brightness > 230) lighting = "too_bright";
-        setLightingCondition(lighting);
-        setShowLightingWarning(lighting !== "good");
-
-        // 2. Stability/Motion Check (Threshold found experimentally, adjusted for sensitivity)
-        const isMoving = avgMotion > 15;
-        setIsStable(!isMoving);
-
-        // 3. Blur Check (Low edge score = blurry)
-        // Note: Edge score depends on content complexity, but < 5 is usually very blurry/flat.
-        const isBlurry = avgEdge < 3;
-        setBlurStatus(isBlurry ? "blurry" : "focused");
-
-        /* OLD CODE - LOGIC
-        // GLOBAL READY STATE
-        // Ready if: Good Lighting AND Stable AND Focused
-        const isReady = lighting === "good" && !isMoving && !isBlurry;
-        setScanReady(isReady);
-        */
-
-        // NEW CODE - OPAY LOGIC
-        const isReady = lighting === "good" && !isMoving && !isBlurry;
-        setScanReady(isReady);
-
-        // Dynamic Instruction "Feathers"
-        if (lighting === "too_dark") {
-          setInstructionText("Lighten up your face");
-          setScanProgress(0);
-        } else if (lighting === "too_bright") {
-          setInstructionText("Too bright, move away from light");
-          setScanProgress(0);
-        } else if (isMoving) {
-          setInstructionText("Straighten your head & hold still"); // OPay style text
-          setScanProgress(0);
-        } else if (isBlurry) {
-          setInstructionText("Clean your camera lens"); // Or "Move closer/focused"
-          setScanProgress(0);
-        } else {
-          setInstructionText("Hold still...");
-          setScanProgress((prev) => {
-            const newProgress = prev + 5; // Fill up in ~1-2 seconds (check interval 500ms? maybe too slow, assumes faster interval or bigger jump)
-            return newProgress > 100 ? 100 : newProgress;
-          });
-        }
+  // Initialize MediaPipe FaceLandmarker
+  useEffect(() => {
+    const initMediaPipe = async () => {
+      try {
+        const filesetResolver = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm"
+        );
+        const landmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
+          baseOptions: {
+            modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+            delegate: "GPU",
+          },
+          outputFaceBlendshapes: true,
+          runningMode: "VIDEO",
+          numFaces: 1,
+        });
+        setFaceLandmarker(landmarker);
+        console.log("MediaPipe FaceLandmarker Loaded");
+      } catch (error) {
+        console.error("Error loading MediaPipe:", error);
+        toast.error("Failed to load face detection model.");
       }
-    }
+    };
+    initMediaPipe();
   }, []);
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (cameraActive && !isScanning && !scanComplete) {
-      interval = setInterval(checkQuality, 100); // NEW CODE: Faster check (100ms) for smooth progress ring
+  const predictWebcam = useCallback(async () => {
+    if (!faceLandmarker || !videoRef.current || !cameraActive) return;
+
+    // PREVENT CRASH: Ensure video has dimensions
+    if (videoRef.current.videoWidth === 0 || videoRef.current.videoHeight === 0) {
+      requestRef.current = requestAnimationFrame(predictWebcam);
+      return;
     }
-    return () => clearInterval(interval);
-  }, [cameraActive, isScanning, scanComplete, checkQuality]);
+
+    let startTimeMs = performance.now();
+
+    if (lastVideoTimeRef.current !== videoRef.current.currentTime) {
+      lastVideoTimeRef.current = videoRef.current.currentTime;
+
+      const results = faceLandmarker.detectForVideo(videoRef.current, startTimeMs);
+
+      if (results.faceLandmarks && results.faceLandmarks.length > 0) {
+        // Face Detected
+        const landmarks = results.faceLandmarks[0];
+
+        // 1. Centering Check (Nose tip #1)
+        const nose = landmarks[1];
+        const isCenteredX = nose.x > 0.4 && nose.x < 0.6;
+        const isCenteredY = nose.y > 0.4 && nose.y < 0.6;
+        const isCentered = isCenteredX && isCenteredY;
+
+        // 2. Pose Check (Use eye depth difference for yaw approximation or blendshapes)
+        // Simple heuristic: Left eye outer (#33) vs Right eye outer (#263) Z-depth difference?
+        // Better: Use Face Blendshapes if available (faceLandmarker.outputFaceBlendshapes = true)
+        // Since we enabled blendshapes, let's use them if possible, otherwise geometric fallback
+        // Actually, let's stick to geometric for simplicity in this version:
+        // Compare X distance from nose to left cheek (#454) vs nose to right cheek (#234)
+        const leftCheek = landmarks[454];
+        const rightCheek = landmarks[234];
+        const distLeft = Math.abs(nose.x - leftCheek.x);
+        const distRight = Math.abs(nose.x - rightCheek.x);
+        const ratio = distLeft / (distRight + 0.001);
+        const isStraight = ratio > 0.8 && ratio < 1.2;
+
+        // Feedback Logic
+        if (!isCentered) {
+          setInstructionText("Center your face in the circle");
+          setScanProgress(0);
+        } else if (!isStraight) {
+          setInstructionText("Look straight ahead");
+          setScanProgress(0);
+        } else {
+          // Good!
+          setInstructionText("Hold still...");
+          setScanProgress((prev) => Math.min(prev + 2, 100)); // Fill in ~50 frames (~1.5s at 30fps)
+        }
+        setScanReady(scanProgress >= 100);
+
+      } else {
+        // No Face
+        setInstructionText("Position your face in the frame");
+        setScanProgress(0);
+        setScanReady(false);
+      }
+    }
+
+    if (cameraActive) {
+      requestRef.current = requestAnimationFrame(predictWebcam);
+    }
+  }, [faceLandmarker, cameraActive, scanProgress]);
+
+  // Start/Stop Loop based on Camera Active state
+  useEffect(() => {
+    if (cameraActive && faceLandmarker) {
+      requestRef.current = requestAnimationFrame(predictWebcam);
+    } else {
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    }
+    return () => {
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    };
+  }, [cameraActive, faceLandmarker, predictWebcam]);
+
+
+  // OLD Interval-based checkQuality REMOVED
+  /*
+  const checkQuality = useCallback(() => { ... })
+  useEffect(() => { ... interval ... })
+  */
 
   // AUTO-CAPTURE REMOVED - Manual trigger only as requested
 
