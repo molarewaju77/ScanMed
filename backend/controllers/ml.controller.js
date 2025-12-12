@@ -1,4 +1,5 @@
 import GeminiChat from "../ml/js/chat/geminiChat.js";
+import DeepSeekChat from "../ml/js/chat/deepSeekChat.js";
 import SttWhisper from "../ml/js/speech/sttWhisper.js";
 import TtsOpenAI from "../ml/js/tts/ttsOpenAI.js";
 import { ChatHistory } from "../models/chatHistory.model.js";
@@ -15,8 +16,9 @@ import { TextureAnalyzer } from "../ml/heuristics/skin/TextureAnalyzer.js";
 import fs from 'fs';
 import path from 'path';
 
-// Initialize AI provider (Gemini only)
+// Initialize AI provider (Gemini for Scan, DeepSeek for Chat)
 const geminiChat = process.env.GEMINI_API_KEY ? new GeminiChat(process.env.GEMINI_API_KEY) : null;
+const deepSeekChat = process.env.DEEPSEEK_API_KEY ? new DeepSeekChat(process.env.DEEPSEEK_API_KEY) : null;
 
 const sttWhisper = process.env.OPENAI_API_KEY ? new SttWhisper(process.env.OPENAI_API_KEY) : null;
 const ttsOpenAI = process.env.OPENAI_API_KEY ? new TtsOpenAI(process.env.OPENAI_API_KEY) : null;
@@ -26,22 +28,22 @@ export const chat = async (req, res) => {
         const { message, history, language, chatId } = req.body;
         const userId = req.userId; // From verifyToken middleware
 
-        // Check if Gemini is available
-        if (!geminiChat) {
+        // Check if DeepSeek is available for chat
+        if (!deepSeekChat) {
             return res.status(500).json({
                 success: false,
-                message: "Gemini API not configured. Please add GEMINI_API_KEY to your .env file."
+                message: "DeepSeek API not configured. Please add DEEPSEEK_API_KEY to your .env file."
             });
         }
 
         let responseText;
         try {
-            // Get AI Response from Gemini
-            console.log('Using Gemini Chat');
-            responseText = await geminiChat.sendMessage(history || [], message, language || 'en');
-        } catch (geminiError) {
-            console.error('Gemini error:', geminiError.message);
-            throw geminiError; // Let outer catch handle fallback
+            // Get AI Response from DeepSeek
+            console.log('Using DeepSeek Chat');
+            responseText = await deepSeekChat.sendMessage(history || [], message, language || 'en');
+        } catch (aiError) {
+            console.error('DeepSeek error:', aiError.message);
+            throw aiError; // Let outer catch handle fallback
         }
 
         // Save to Database
@@ -172,10 +174,11 @@ export const analyzeFace = async (req, res) => {
         let jsonResponse;
 
         // Construct prompt based on scan type for Gemini
+        // Construct prompt based on scan type for Gemini
         const prompts = {
-            eyes: "Analyze this eye image for redness, jaundice, cataracts, fatigue, or other visible conditions.",
-            teeth: "Analyze this dental image for plaque, cavities, or gum issues.",
-            skin: "Analyze this skin image for rashes, moles, or dermatological concerns."
+            eyes: "Strictly analyze this image to verify it is a closeup of a HUMAN EYE. If it is NOT an eye (e.g. hand, face, object, blurry), return 'Invalid'. If it is a face but too far away, return 'Invalid' and note 'Face detected but too far. Please zoom in on the eye.'. If it IS an eye, analyze for redness, jaundice, cataracts, fatigue, or other visible conditions.",
+            teeth: "Strictly analyze this image to verify it is a closeup of HUMAN TEETH. If it is NOT teeth (e.g. lips only, hand, object), return 'Invalid'. If it IS teeth, analyze for plaque, cavities, or gum issues.",
+            skin: "Strictly analyze this image to verify it is a closeup of HUMAN SKIN. If it is NOT skin (e.g. object, blurry, distant), return 'Invalid'. If it IS skin, analyze for rashes, moles, or dermatological concerns."
         };
 
         const specificPrompt = prompts[scanType] || "Analyze this medical image for health concerns.";
@@ -183,12 +186,18 @@ export const analyzeFace = async (req, res) => {
         const fullPrompt = `${specificPrompt} Act as a professional medical AI assistant.
         IMPORTANT: Return ONLY a valid JSON object with this exact structure (no markdown, no backticks):
         {
-            "result": "Healthy" or "Concern" or "Urgent",
-            "confidence": number between 70-99,
-            "notes": "Brief, professional medical observation (max 2 sentences)",
+            "status": "Good" or "Low" or "Critical" or "Invalid",
+            "healthScore": number betwen 0-100 (100 is perfect health, 0 is critical/emergency),
+            "findings": ["Finding 1", "Finding 2", "Finding 3"],
+            "summary": "Detailed medical observation summary (2-3 sentences). If Invalid, explain why.",
             "recommendations": ["Action 1", "Action 2", "Action 3"],
-            "needsHospital": true or false,
-            "severity": "none" or "moderate" or "high"
+            "needsHospital": true or false
+            
+            // Rules for Score/Status:
+            // 61-100: Good (Healthy)
+            // 41-60: Low (Concern/Fair)
+            // 0-40: Critical (Urgent/Severe)
+            // If Invalid: status="Invalid", healthScore=0, findings=[], summary="Reason..."
         }`;
 
         // Try AI vision analysis with Gemini
@@ -273,12 +282,12 @@ export const analyzeFace = async (req, res) => {
                     }
 
                     jsonResponse = JSON.stringify({
-                        result: isHealthy ? "Healthy" : (isDangerous ? "Urgent" : "Concern"),
-                        confidence: Math.max(redness.score, cataract.score, fatigue.score),
-                        notes: notes,
+                        status: isHealthy ? "Good" : (isDangerous ? "Critical" : "Low"),
+                        healthScore: isHealthy ? 90 : (isDangerous ? 30 : 50),
+                        findings: issues.length > 0 ? issues : ["No significant issues detected"],
+                        summary: notes,
                         recommendations: recommendations,
-                        needsHospital: isDangerous, // Flag to trigger hospital finder
-                        severity: isDangerous ? "high" : (isHealthy ? "none" : "moderate")
+                        needsHospital: isDangerous
                     });
                 } catch (err) {
                     console.error("Heuristic analysis failed:", err);
@@ -476,12 +485,12 @@ export const analyzeFace = async (req, res) => {
             console.error("Failed to parse Gemini/Heuristic response:", jsonResponse);
             // Fallback if parsing fails
             analysis = {
-                result: "Inconclusive",
-                confidence: 85,
-                notes: jsonResponse.substring(0, 200),
-                recommendations: ["Consult a healthcare provider for detailed assessment"],
-                needsHospital: false,
-                severity: "none"
+                status: "Low",
+                healthScore: 50,
+                findings: ["Analysis unavailable"],
+                summary: "Could not parse AI response. Please try again.",
+                recommendations: ["Consult a healthcare provider"],
+                needsHospital: false
             };
         }
 
@@ -505,12 +514,19 @@ export const analyzeFace = async (req, res) => {
         const scan = await HealthScan.create({
             userId,
             scanType: scanType || "eyes",
-            result: analysis.result,
-            confidence: analysis.confidence,
-            notes: analysis.notes,
+            // Map new fields to DB schema
+            healthScore: analysis.healthScore || 0,
+            findings: analysis.findings || [],
+            status: analysis.status || "Low",
+            notes: analysis.summary || analysis.notes, // Map summary to notes
+
+            // Legacy/Derived fields for backward compatibility
+            result: analysis.status === "Good" ? "Healthy" : (analysis.status === "Critical" ? "Urgent" : "Concern"),
+            confidence: analysis.healthScore || 0,
+            severity: analysis.status === "Critical" ? "high" : (analysis.status === "Low" ? "moderate" : "none"),
+
             recommendations: analysis.recommendations || [],
             needsHospital: analysis.needsHospital || false,
-            severity: analysis.severity || "none",
             status: "success",
             imageUrl: imageUrl
         });
@@ -522,7 +538,9 @@ export const analyzeFace = async (req, res) => {
                 ...scan.toObject(),
                 recommendations: analysis.recommendations,
                 needsHospital: analysis.needsHospital || false,
-                severity: analysis.severity || "none"
+                healthScore: analysis.healthScore,
+                findings: analysis.findings || [],
+                status: analysis.status
             }
         });
     } catch (error) {

@@ -1,4 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+// import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Eye,
   Smile,
@@ -11,7 +13,11 @@ import {
   Sparkles,
   Info,
   Scan as ScanIcon,
+  ZoomIn,
+  ZoomOut,
+  Maximize,
 } from "lucide-react";
+// import { Link } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -76,15 +82,30 @@ const Scan = () => {
   const [showHospitalSearch, setShowHospitalSearch] = useState(false);
   const [userLocation, setUserLocation] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [invalidScanError, setInvalidScanError] = useState<string | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
+  const [lightingCondition, setLightingCondition] = useState<"good" | "too_dark" | "too_bright">("good");
+  const [showLightingWarning, setShowLightingWarning] = useState(false);
+  const [isStable, setIsStable] = useState(true);
+  const [blurStatus, setBlurStatus] = useState<"focused" | "blurry">("focused");
+  const [scanReady, setScanReady] = useState(false);
+
+  const previousFrameData = useRef<Uint8ClampedArray | null>(null);
 
   const selectedOption = scanOptions.find((opt) => opt.id === selectedScan);
 
   const startCamera = async () => {
     try {
       setCameraError(null);
+      // Reset quality states
+      setIsStable(true);
+      setBlurStatus("focused");
+      setScanReady(false);
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: "user",
@@ -107,6 +128,7 @@ const Scan = () => {
       streamRef.current = null;
     }
     setCameraActive(false);
+    setZoomLevel(1); // Reset zoom
   };
 
   // Attach stream to video element when it becomes available
@@ -115,6 +137,84 @@ const Scan = () => {
       videoRef.current.srcObject = streamRef.current;
     }
   }, [cameraActive, selectedScan]);
+
+  const checkQuality = useCallback(() => {
+    if (videoRef.current && videoRef.current.readyState === 4) {
+      const canvas = document.createElement("canvas");
+      // Use smaller size for performance
+      canvas.width = 320;
+      canvas.height = 240;
+      const ctx = canvas.getContext("2d");
+
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        let r, g, b, avg;
+        let colorSum = 0;
+        let edgeScore = 0; // Simple blur proxy via edge intensity
+        let motionScore = 0; // Frame difference
+
+        // Scan pixels
+        for (let i = 0; i < data.length; i += 4) {
+          r = data[i];
+          g = data[i + 1];
+          b = data[i + 2];
+          avg = (r + g + b) / 3;
+          colorSum += avg;
+
+          // Edge detection (compare with neighbor) - Horizontal only for speed
+          if (i > 4) {
+            const prevAvg = (data[i - 4] + data[i - 3] + data[i - 2]) / 3;
+            edgeScore += Math.abs(avg - prevAvg);
+          }
+
+          // Motion detection
+          if (previousFrameData.current) {
+            motionScore += Math.abs(avg - ((previousFrameData.current[i] + previousFrameData.current[i + 1] + previousFrameData.current[i + 2]) / 3));
+          }
+        }
+
+        // Save current frame for next motion check
+        previousFrameData.current = new Uint8ClampedArray(data);
+
+        const totalPixels = data.length / 4;
+        const brightness = Math.floor(colorSum / totalPixels);
+        const avgEdge = edgeScore / totalPixels;
+        const avgMotion = motionScore / totalPixels;
+
+        // 1. Lighting Check
+        let lighting: "good" | "too_dark" | "too_bright" = "good";
+        if (brightness < 60) lighting = "too_dark";
+        else if (brightness > 230) lighting = "too_bright";
+        setLightingCondition(lighting);
+        setShowLightingWarning(lighting !== "good");
+
+        // 2. Stability/Motion Check (Threshold found experimentally, adjusted for sensitivity)
+        const isMoving = avgMotion > 15;
+        setIsStable(!isMoving);
+
+        // 3. Blur Check (Low edge score = blurry)
+        // Note: Edge score depends on content complexity, but < 5 is usually very blurry/flat.
+        const isBlurry = avgEdge < 3;
+        setBlurStatus(isBlurry ? "blurry" : "focused");
+
+        // GLOBAL READY STATE
+        // Ready if: Good Lighting AND Stable AND Focused
+        const isReady = lighting === "good" && !isMoving && !isBlurry;
+        setScanReady(isReady);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (cameraActive && !isScanning && !scanComplete) {
+      interval = setInterval(checkQuality, 500); // Check every 500ms
+    }
+    return () => clearInterval(interval);
+  }, [cameraActive, isScanning, scanComplete, checkQuality]);
 
   const captureImage = () => {
     if (videoRef.current) {
@@ -160,8 +260,22 @@ const Scan = () => {
 
       if (response.data.success) {
         stopCamera();
+
+        // Handle Invalid Result (Wrong Body Part)
+        if (response.data.data.status === "Invalid") {
+          setLightingCondition("good");
+          setScanResult(response.data.data);
+          // Use summary for error message in this new structure
+          setCameraError(response.data.data.summary || "We couldn't detect the correct body part.");
+
+          startCamera();
+          setInvalidScanError(response.data.data.summary);
+          return;
+        }
+
         setScanResult(response.data.data);
         setScanComplete(true);
+        setInvalidScanError(null);
         toast.success("Scan completed successfully!");
 
         // Auto-trigger hospital finder if result is dangerous/urgent
@@ -198,7 +312,9 @@ const Scan = () => {
     setIsScanning(false);
     setScanComplete(false);
     setScanResult(null);
+    setScanResult(null);
     setCameraError(null);
+    setInvalidScanError(null);
   };
 
   useEffect(() => {
@@ -248,8 +364,94 @@ const Scan = () => {
                         autoPlay
                         playsInline
                         muted
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transition-transform duration-200"
+                        style={{ transform: `scale(${zoomLevel})` }}
                       />
+
+                      {/* Targeting Overlays */}
+                      <div className="absolute inset-0 pointer-events-none z-0 flex items-center justify-center">
+                        {selectedScan === "eye" && (
+                          <div className="w-64 h-32 border-2 border-white/50 rounded-[50%] box-content shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] flex items-center justify-center">
+                            <div className="w-2 h-2 bg-white/80 rounded-full animate-pulse" />
+                          </div>
+                        )}
+                        {selectedScan === "teeth" && (
+                          <div className="w-56 h-32 border-2 border-white/50 rounded-[2rem] box-content shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]" />
+                        )}
+                        {selectedScan === "skin" && (
+                          <div className="w-56 h-72 border-2 border-white/50 rounded-[4rem] box-content shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]" />
+                        )}
+                      </div>
+
+                      {/* Zoom Controls */}
+                      <div className="absolute bottom-4 left-0 right-0 px-8 flex items-center gap-4 z-10">
+                        <ZoomOut className="w-4 h-4 text-white" />
+                        <input
+                          type="range"
+                          min="1"
+                          max="3"
+                          step="0.1"
+                          value={zoomLevel}
+                          onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
+                          className="flex-1 h-2 bg-white/30 rounded-lg appearance-none cursor-pointer accent-primary"
+                        />
+                        <ZoomIn className="w-4 h-4 text-white" />
+                      </div>
+                      {/* Real-time Quality Badges */}
+                      {(showLightingWarning || !isStable || blurStatus === 'blurry') && !isScanning && (
+                        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex flex-col gap-2 items-center w-full pointer-events-none">
+                          {showLightingWarning && (
+                            <Badge variant="destructive" className="flex items-center gap-1 shadow-lg animate-pulse">
+                              <AlertCircle className="w-3 h-3" />
+                              {lightingCondition === "too_dark"
+                                ? "Too Dark - Add Light"
+                                : "Too Bright - Reduce Light"}
+                            </Badge>
+                          )}
+                          {!isStable && (
+                            <Badge variant="secondary" className="flex items-center gap-1 shadow-lg bg-yellow-500 text-white animate-pulse">
+                              <Maximize className="w-3 h-3" />
+                              Hold Camera Steady
+                            </Badge>
+                          )}
+                          {isStable && blurStatus === 'blurry' && !showLightingWarning && (
+                            <Badge variant="secondary" className="flex items-center gap-1 shadow-lg bg-orange-500 text-white animate-pulse">
+                              <Eye className="w-3 h-3" />
+                              Focusing...
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Invalid Scan / Wrong Body Part Warning Overlay */}
+                      {invalidScanError && !isScanning && (
+                        <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center p-4 z-20 backdrop-blur-md">
+                          <AlertCircle className="w-12 h-12 text-destructive mb-3" />
+                          <h3 className="text-lg font-bold text-foreground mb-1">
+                            Incorrect Scan Target
+                          </h3>
+                          <p className="text-sm text-center text-muted-foreground mb-4 px-4">
+                            {invalidScanError}
+                          </p>
+                          <div className="flex gap-2 w-full max-w-xs flex-col">
+                            <Button
+                              variant="default"
+                              className="w-full gradient-medical"
+                              onClick={() => navigate("/chat")}
+                            >
+                              <Sparkles className="w-4 h-4 mr-2" />
+                              Go to AI Symptom Checker
+                            </Button>
+                            <Button
+                              variant="outline"
+                              className="w-full"
+                              onClick={() => setInvalidScanError(null)}
+                            >
+                              Try Again
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                       {isScanning && (
                         <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center">
                           <div className="w-14 h-14 rounded-full border-4 border-primary border-t-transparent animate-spin mb-4" />
@@ -299,33 +501,15 @@ const Scan = () => {
                 </div>
 
                 <Button
-                  className="w-full gradient-medical text-primary-foreground mt-4"
+                  className={cn("w-full transition-all duration-300", !scanReady ? "bg-muted text-muted-foreground" : "gradient-medical text-primary-foreground")}
                   onClick={handleStartScan}
-                  disabled={isScanning || !cameraActive}
+                  disabled={isScanning || !cameraActive || !scanReady}
                 >
                   <Camera className="w-4 h-4 mr-2" />
-                  {isScanning ? "Scanning..." : "Capture & Scan"}
+                  {isScanning ? "Scanning..." : !scanReady ? "Adjust Camera..." : "Capture & Scan"}
                 </Button>
 
-                <div className="mt-3 text-center">
-                  <span className="text-sm text-muted-foreground">or</span>
-                </div>
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-                <Button
-                  variant="outline"
-                  className="w-full mt-3"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isScanning}
-                >
-                  Upload Image
-                </Button>
+                {/* Upload Button Removed as per request */}
               </div>
 
               {/* Instructions */}
@@ -349,18 +533,20 @@ const Scan = () => {
             </>
           ) : (
             /* Results View */
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-6 animate-fade-in pb-20">
               <div className="medical-card p-6">
                 <div className="flex items-center gap-4 mb-6">
                   <div
                     className={cn(
                       "w-12 h-12 rounded-full flex items-center justify-center",
-                      scanResult?.result === "Healthy"
+                      scanResult?.status === "Good"
                         ? "bg-green-100 text-green-600"
-                        : "bg-yellow-100 text-yellow-600"
+                        : scanResult?.status === "Low"
+                          ? "bg-yellow-100 text-yellow-600"
+                          : "bg-red-100 text-red-600"
                     )}
                   >
-                    {scanResult?.result === "Healthy" ? (
+                    {scanResult?.status === "Good" ? (
                       <CheckCircle className="w-6 h-6" />
                     ) : (
                       <AlertCircle className="w-6 h-6" />
@@ -380,43 +566,81 @@ const Scan = () => {
                     <span className="font-medium">Overall Status</span>
                     <Badge
                       variant={
-                        scanResult?.result === "Healthy"
-                          ? "default"
-                          : "destructive"
+                        scanResult?.status === "Good"
+                          ? "default" // Green/Primary usually
+                          : scanResult?.status === "Critical"
+                            ? "destructive"
+                            : "secondary" // Yellow/Warning usually needs custom class
                       }
-                      className="text-base px-4 py-1"
+                      className={cn(
+                        "text-base px-4 py-1",
+                        scanResult?.status === "Good" && "bg-green-500 hover:bg-green-600",
+                        scanResult?.status === "Low" && "bg-yellow-500 hover:bg-yellow-600 text-white",
+                        scanResult?.status === "Critical" && "bg-red-500 hover:bg-red-600"
+                      )}
                     >
-                      {scanResult?.result || "Unknown"}
+                      {scanResult?.status || "Unknown"}
                     </Badge>
                   </div>
 
-                  {/* Confidence */}
-                  {scanResult?.confidence && (
+                  {/* Health Score */}
+                  {scanResult?.healthScore !== undefined && (
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">
-                          AI Confidence
+                          Health Score
                         </span>
-                        <span className="font-medium">
-                          {scanResult.confidence}%
+                        <span className={`font-bold ${scanResult.healthScore > 60 ? "text-green-600" :
+                          scanResult.healthScore > 40 ? "text-yellow-600" : "text-red-600"
+                          }`}>
+                          {scanResult.healthScore}/100
                         </span>
                       </div>
-                      <div className="h-2 bg-accent rounded-full overflow-hidden">
+                      <div className="h-4 bg-accent rounded-full overflow-hidden relative">
                         <div
-                          className="h-full bg-primary transition-all duration-1000"
-                          style={{ width: `${scanResult.confidence}%` }}
+                          className={cn(
+                            "h-full transition-all duration-1000 rounded-full",
+                            scanResult.healthScore > 60 ? "bg-green-500" :
+                              scanResult.healthScore > 40 ? "bg-yellow-500" : "bg-red-500"
+                          )}
+                          style={{ width: `${scanResult.healthScore}%` }}
                         />
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground px-1">
+                        <span>Critical</span>
+                        <span>Low</span>
+                        <span>Good</span>
                       </div>
                     </div>
                   )}
 
-                  {/* Insights */}
-                  <Alert>
-                    <Info className="h-4 w-4" />
-                    <AlertDescription className="ml-2">
-                      {scanResult?.notes}
-                    </AlertDescription>
-                  </Alert>
+                  {/* Findings List (Diagnostics) */}
+                  {scanResult?.findings && scanResult.findings.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="font-semibold flex items-center gap-2">
+                        <Info className="w-4 h-4 text-primary" />
+                        Key Findings
+                      </h3>
+                      <ul className="space-y-2 bg-accent/30 p-4 rounded-lg">
+                        {scanResult.findings.map((finding: string, i: number) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-foreground/80">
+                            <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 shrink-0" />
+                            {finding}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Notes Summary */}
+                  {scanResult?.summary && (
+                    <Alert>
+                      <Info className="h-4 w-4" />
+                      <AlertDescription className="ml-2">
+                        {scanResult.summary}
+                      </AlertDescription>
+                    </Alert>
+                  )}
 
                   {/* Recommendations */}
                   {scanResult?.recommendations &&

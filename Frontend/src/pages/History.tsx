@@ -51,10 +51,12 @@ interface ChatHistory extends BaseHistoryItem {
 interface ScanHistory extends BaseHistoryItem {
   type: string;
   result: string;
-  status: string;
+  status: string; // Good, Low, Critical
+  healthScore?: number;
   confidence?: number;
   notes?: string;
   recommendations?: string[];
+  findings?: string[];
 }
 
 interface MedBuddyHistory extends BaseHistoryItem {
@@ -125,26 +127,51 @@ const History = () => {
 
       if (scansRes.data.success) {
         setScanHistory(
-          scansRes.data.scans.map((scan: any) => ({
-            id: scan._id,
-            type:
-              scan.scanType === "eyes"
-                ? "Eye Scan"
-                : scan.scanType === "teeth"
-                ? "Dental Scan"
-                : "Skin Scan",
-            date: new Date(scan.createdAt).toLocaleDateString(),
-            time: new Date(scan.createdAt).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            result: scan.result,
-            status: scan.status,
-            confidence: scan.confidence,
-            notes: scan.notes,
-            recommendations: scan.recommendations,
-            deletedAt: scan.deletedAt,
-          }))
+          scansRes.data.scans.map((scan: any) => {
+            // Backward compatibility mapping
+            // Determine score and status
+            let score = scan.healthScore;
+
+            // If explicit health score exists, enforce exact ranges
+            let displayStatus = scan.status;
+
+            if (typeof score === 'number') {
+              if (score > 60) displayStatus = 'Good';
+              else if (score > 40) displayStatus = 'Low';
+              else displayStatus = 'Critical';
+            } else {
+              // Backward compatibility for old scans without healthScore
+              if (!displayStatus || ['success', 'warning', 'danger'].includes(displayStatus)) {
+                if (scan.result === 'Healthy') displayStatus = 'Good';
+                else if (['Concern', 'Minor Issues'].includes(scan.result)) displayStatus = 'Low';
+                else if (['Urgent', 'Needs Attention'].includes(scan.result)) displayStatus = 'Critical';
+                else displayStatus = 'Low'; // Default fallback
+              }
+            }
+
+            return {
+              id: scan._id,
+              type:
+                scan.scanType === "eyes"
+                  ? "Eye Scan"
+                  : scan.scanType === "teeth"
+                    ? "Dental Scan"
+                    : "Skin Scan",
+              date: new Date(scan.createdAt).toLocaleDateString(),
+              time: new Date(scan.createdAt).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+              result: scan.result,
+              status: displayStatus,
+              healthScore: scan.healthScore, // New field
+              confidence: scan.confidence, // Fallback
+              notes: scan.notes,
+              findings: scan.findings,
+              recommendations: scan.recommendations,
+              deletedAt: scan.deletedAt,
+            };
+          })
         );
       }
 
@@ -304,9 +331,9 @@ const History = () => {
   };
 
   const getStatusColor = (status: string) => {
-    if (status === "success" || status === "Active" || status === "Healthy")
+    if (status === "success" || status === "Active" || status === "Healthy" || status === "Good")
       return "text-green-500 bg-green-500/10";
-    if (status === "moderate" || status === "Concern")
+    if (status === "moderate" || status === "Concern" || status === "Low")
       return "text-yellow-500 bg-yellow-500/10";
     return "text-destructive bg-destructive/10";
   };
@@ -455,14 +482,14 @@ const History = () => {
                         <span
                           className={cn(
                             "block text-xs px-2 py-0.5 rounded-full capitalize",
-                            getStatusColor(scan.result)
+                            getStatusColor(scan.status)
                           )}
                         >
-                          {scan.result}
+                          {scan.status}
                         </span>
-                        {scan.confidence && (
+                        {(scan.healthScore !== undefined || scan.confidence !== undefined) && (
                           <span className="text-xs text-muted-foreground block mt-1">
-                            {scan.confidence}% conf.
+                            {scan.healthScore !== undefined ? `${scan.healthScore} / 100` : `${scan.confidence}% conf.`}
                           </span>
                         )}
                       </div>
@@ -511,12 +538,10 @@ const History = () => {
                       <div className="flex items-center gap-3 mt-1">
                         <span className="text-xs text-muted-foreground">
                           {item.type === "medication"
-                            ? `${(item as MedBuddyHistory).dosage} • ${
-                                (item as MedBuddyHistory).frequency
-                              }`
-                            : `${item.time} • ${
-                                (item as AppointmentHistory).specialty
-                              }`}
+                            ? `${(item as MedBuddyHistory).dosage} • ${(item as MedBuddyHistory).frequency
+                            }`
+                            : `${item.time} • ${(item as AppointmentHistory).specialty
+                            }`}
                         </span>
                       </div>
                     </div>
@@ -646,12 +671,14 @@ const History = () => {
                   <span className="font-medium">Result</span>
                   <Badge
                     variant={
-                      selectedItem.result === "Healthy"
+                      selectedItem.status === "Good" || selectedItem.result === "Healthy"
                         ? "default"
-                        : "destructive"
+                        : selectedItem.status === "Low" || selectedItem.result === "Concern"
+                          ? "secondary"
+                          : "destructive"
                     }
                   >
-                    {selectedItem.result}
+                    {selectedItem.status}
                   </Badge>
                 </div>
                 {selectedItem.confidence && (
