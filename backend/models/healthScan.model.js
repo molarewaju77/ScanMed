@@ -14,14 +14,25 @@ const healthScanSchema = new mongoose.Schema(
         },
         result: {
             type: String,
-            enum: ["Healthy", "Minor Issues", "Needs Attention", "Concern", "Urgent", "Inconclusive"],
-            required: true,
+            enum: ["Healthy", "Minor Issues", "Needs Attention", "Concern", "Urgent", "Inconclusive", "Invalid"],
+            default: "Inconclusive"
         },
         confidence: {
             type: Number,
             min: 0,
             max: 100,
-            required: true,
+            default: 0
+        },
+        healthScore: {
+            type: Number,
+            min: 0,
+            max: 100,
+            default: 0
+        },
+        description: { type: String }, // Backwards compat if needed
+        findings: {
+            type: [String],
+            default: []
         },
         notes: {
             type: String,
@@ -41,8 +52,8 @@ const healthScanSchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ["success", "warning", "danger"],
-            default: "success",
+            enum: ["Good", "Low", "Critical", "Invalid", "success", "warning", "danger"], // Added new statuses
+            default: "Good",
         },
         imageUrl: {
             type: String,

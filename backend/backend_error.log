@@ -1,0 +1,41 @@
+ValidationError: result: Path `result` is required., confidence: Path `confidence` is required.
+ValidationError: HealthScan validation failed: result: Path `result` is required., confidence: Path `confidence` is required.
+    at Document.invalidate (C:\Users\makin\Desktop\gello\ScanMedMlintegration\backend\node_modules\mongoose\lib\document.js:3365:32)
+    at validatePath (C:\Users\makin\Desktop\gello\ScanMedMlintegration\backend\node_modules\mongoose\lib\document.js:3140:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Promise.all (index 2)
+    at async model.$__validate (C:\Users\makin\Desktop\gello\ScanMedMlintegration\backend\node_modules\mongoose\lib\document.js:3081:3)
+    at async model.validate (C:\Users\makin\Desktop\gello\ScanMedMlintegration\backend\node_modules\mongoose\lib\document.js:2663:5)
+    at async model.validateBeforeSave (C:\Users\makin\Desktop\gello\ScanMedMlintegration\backend\node_modules\mongoose\lib\plugins\validateBeforeSave.js:34:7)
+    at async Kareem.execPre (C:\Users\makin\Desktop\gello\ScanMedMlintegration\backend\node_modules\kareem\index.js:65:24)
+    at async model.$__save (C:\Users\makin\Desktop\gello\ScanMedMlintegration\backend\node_modules\mongoose\lib\model.js:369:5)
+    at async model.save (C:\Users\makin\Desktop\gello\ScanMedMlintegration\backend\node_modules\mongoose\lib\model.js:609:5)
+{
+  "errors": {
+    "result": {
+      "name": "ValidatorError",
+      "message": "Path `result` is required.",
+      "properties": {
+        "message": "Path `result` is required.",
+        "type": "required",
+        "path": "result"
+      },
+      "kind": "required",
+      "path": "result"
+    },
+    "confidence": {
+      "name": "ValidatorError",
+      "message": "Path `confidence` is required.",
+      "properties": {
+        "message": "Path `confidence` is required.",
+        "type": "required",
+        "path": "confidence"
+      },
+      "kind": "required",
+      "path": "confidence"
+    }
+  },
+  "_message": "HealthScan validation failed",
+  "name": "ValidationError",
+  "message": "HealthScan validation failed: result: Path `result` is required., confidence: Path `confidence` is required."
+}

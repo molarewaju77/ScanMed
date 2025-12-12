@@ -292,7 +292,10 @@ const Index = () => {
     try {
       const response = await api.get("/health-scans");
       if (response.data.success) {
-        const scans = response.data.scans;
+        let scans = response.data.scans;
+        // Sort by date descending
+        scans.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
         setTotalScans(scans.length);
 
         if (scans.length > 0) {
@@ -302,36 +305,38 @@ const Index = () => {
           const latestScans: any = {
             eye: scans.find((s: any) => s.scanType === "eyes"),
             teeth: scans.find((s: any) => s.scanType === "teeth"),
-            skin: scans.find((s: any) => s.scanType === "skin"), // Assuming 'skin' is the type, frontend used 'skin' in mock
+            skin: scans.find((s: any) => s.scanType === "skin"),
           };
+
+          // Helper to get score securely
+          const getScore = (scan: any) => {
+            if (!scan) return 0;
+            if (typeof scan.healthScore === 'number') return scan.healthScore;
+            if (typeof scan.confidence === 'number') return scan.confidence;
+            // Fallback based on status text if no numbers
+            if (scan.status === 'success' || scan.status === 'Good' || scan.result === 'Healthy') return 90;
+            return 50;
+          };
+
+          const eyeScore = getScore(latestScans.eye);
+          const teethScore = getScore(latestScans.teeth);
+          const skinScore = getScore(latestScans.skin);
 
           const newResults = {
             eye: {
-              score: latestScans.eye
-                ? latestScans.eye.status === "success"
-                  ? 90
-                  : 50
-                : 0, // Mock score based on status as backend might not return score yet
+              score: latestScans.eye ? eyeScore : 0,
               updatedAgo: latestScans.eye
                 ? getTimeAgo(new Date(latestScans.eye.createdAt))
                 : "Not scanned yet",
             },
             teeth: {
-              score: latestScans.teeth
-                ? latestScans.teeth.status === "success"
-                  ? 85
-                  : 45
-                : 0,
+              score: latestScans.teeth ? teethScore : 0,
               updatedAgo: latestScans.teeth
                 ? getTimeAgo(new Date(latestScans.teeth.createdAt))
                 : "Not scanned yet",
             },
             skin: {
-              score: latestScans.skin
-                ? latestScans.skin.status === "success"
-                  ? 95
-                  : 60
-                : 0,
+              score: latestScans.skin ? skinScore : 0,
               updatedAgo: latestScans.skin
                 ? getTimeAgo(new Date(latestScans.skin.createdAt))
                 : "Not scanned yet",
@@ -339,15 +344,15 @@ const Index = () => {
           };
           setScanResults(newResults);
 
-          // Calculate overall score
-          const scores = Object.values(newResults)
-            .map((r) => r.score)
-            .filter((s) => s > 0);
-          const avgScore =
-            scores.length > 0
-              ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-              : 0;
+          // Calculate overall score (strict average of 3 categories)
+          // Even if 0, it counts.
+          const avgScore = Math.round((eyeScore + teethScore + skinScore) / 3);
           setOverallScore(avgScore);
+        } else {
+          // No scans at all
+          setTotalScans(0);
+          setOverallScore(0);
+          setLastScanDate("No scans yet");
         }
       }
     } catch (error) {
