@@ -219,9 +219,10 @@ export function ChatInterface({ className, embedded = false }: ChatInterfaceProp
 
     try {
       // Prepare history for ML endpoint
+      // Prepare history for ML endpoint (Backend expects simple format and handles Gemini formatting)
       const conversationHistory = messages.slice(1).map(m => ({
-        role: m.role === "user" ? "user" : "model",
-        parts: [{ text: m.content }]
+        sender: m.role === "user" ? "user" : "ai",
+        text: m.content
       }));
 
       const response = await api.post("/ml/chat", {
