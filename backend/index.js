@@ -83,6 +83,10 @@ app.get("/api/health", (req, res) => {
   res.json({ success: true, message: "Server is running" });
 });
 
+app.get("/", (req, res) => {
+  res.json({ success: true, message: "Backend API running successfully" });
+});
+
 app.listen(PORT, () => {
   connectDB();
   setupReminderJob();
