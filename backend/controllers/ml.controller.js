@@ -1,6 +1,4 @@
 import GeminiChat from "../ml/js/chat/geminiChat.js";
-import OllamaChat from "../ml/js/chat/ollama/ollamaChat.js";
-import LlamaStackChat from "../ml/js/chat/llama-stack/llamaStackChat.js";
 import SttWhisper from "../ml/js/speech/sttWhisper.js";
 import TtsOpenAI from "../ml/js/tts/ttsOpenAI.js";
 import { ChatHistory } from "../models/chatHistory.model.js";
@@ -17,71 +15,33 @@ import { TextureAnalyzer } from "../ml/heuristics/skin/TextureAnalyzer.js";
 import fs from 'fs';
 import path from 'path';
 
-// Initialize AI providers based on environment configuration
-const AI_PROVIDER = process.env.AI_PROVIDER || 'gemini'; // Options: gemini, ollama, llama-stack
-
+// Initialize AI provider (Gemini only)
 const geminiChat = process.env.GEMINI_API_KEY ? new GeminiChat(process.env.GEMINI_API_KEY) : null;
-const ollamaChat = new OllamaChat(); // Ollama runs locally, no API key needed
-const llamaStackChat = new LlamaStackChat(); // Llama Stack runs locally
 
 const sttWhisper = process.env.OPENAI_API_KEY ? new SttWhisper(process.env.OPENAI_API_KEY) : null;
 const ttsOpenAI = process.env.OPENAI_API_KEY ? new TtsOpenAI(process.env.OPENAI_API_KEY) : null;
-
-/**
- * Get the active AI client based on environment configuration
- * Falls back to next available provider if primary is unavailable
- */
-function getAIClient() {
-    const providers = {
-        'gemini': geminiChat,
-        'ollama': ollamaChat,
-        'llama-stack': llamaStackChat
-    };
-
-    // Try primary provider
-    const primary = providers[AI_PROVIDER];
-    if (primary) {
-        console.log(`Using AI Provider: ${AI_PROVIDER}`);
-        return { client: primary, provider: AI_PROVIDER };
-    }
-
-    // Fallback chain: Ollama → Llama Stack → Gemini
-    const fallbackOrder = ['ollama', 'llama-stack', 'gemini'];
-    for (const providerName of fallbackOrder) {
-        const client = providers[providerName];
-        if (client) {
-            console.log(`Primary provider '${AI_PROVIDER}' not available. Using fallback: ${providerName}`);
-            return { client, provider: providerName };
-        }
-    }
-
-    return { client: null, provider: null };
-}
 
 export const chat = async (req, res) => {
     try {
         const { message, history, language, chatId } = req.body;
         const userId = req.userId; // From verifyToken middleware
 
-        // Get active AI client with fallback support
-        const { client: aiClient, provider } = getAIClient();
-
-        if (!aiClient) {
+        // Check if Gemini is available
+        if (!geminiChat) {
             return res.status(500).json({
                 success: false,
-                message: "No AI provider available. Please configure Ollama, Llama Stack, or Gemini API."
+                message: "Gemini API not configured. Please add GEMINI_API_KEY to your .env file."
             });
         }
 
         let responseText;
         try {
-            // Get AI Response from active provider
-            responseText = await aiClient.sendMessage(history || [], message, language || 'en');
-        } catch (providerError) {
-            console.error(`${provider} error:`, providerError.message);
-
-            // Try fallback to heuristic response for chat
-            throw providerError; // Let outer catch handle fallback
+            // Get AI Response from Gemini
+            console.log('Using Gemini Chat');
+            responseText = await geminiChat.sendMessage(history || [], message, language || 'en');
+        } catch (geminiError) {
+            console.error('Gemini error:', geminiError.message);
+            throw geminiError; // Let outer catch handle fallback
         }
 
         // Save to Database
@@ -231,21 +191,20 @@ export const analyzeFace = async (req, res) => {
             "severity": "none" or "moderate" or "high"
         }`;
 
-        // Try AI vision analysis with active provider
-        const { client: visionClient, provider: visionProvider } = getAIClient();
-        let useHeuristics = !visionClient;
+        // Try AI vision analysis with Gemini
+        let useHeuristics = !geminiChat;
 
-        if (visionClient) {
+        if (geminiChat) {
             try {
-                // Call AI Vision (Gemini, Ollama Vision, or Llama Stack)
-                console.log(`Using ${visionProvider} for image analysis...`);
-                jsonResponse = await visionClient.analyzeImage(
+                // Call Gemini Vision API
+                console.log('Using Gemini for image analysis...');
+                jsonResponse = await geminiChat.analyzeImage(
                     req.file.buffer,
                     req.file.mimetype,
                     fullPrompt
                 );
             } catch (apiError) {
-                console.error(`${visionProvider} Vision Error:`, apiError.message);
+                console.error('Gemini Vision Error:', apiError.message);
                 console.log("Falling back to Heuristic Engine...");
                 useHeuristics = true;
             }

@@ -1,7 +1,8 @@
 import cron from "node-cron";
 import { Medication } from "../models/medication.model.js";
 import { User } from "../models/user.model.js";
-import { sendNotification } from "../services/notification.service.js";
+// Firebase push notifications temporarily disabled
+// import { sendNotification } from "../services/notification.service.js";
 
 const setupReminderJob = () => {
     // Run every minute
@@ -25,16 +26,17 @@ const setupReminderJob = () => {
             for (const med of medications) {
                 const user = med.userId;
                 if (user && user.fcmToken) {
-                    await sendNotification(
-                        user.fcmToken,
-                        "Medication Reminder",
-                        `Time to take your ${med.name} (${med.dosage})`,
-                        {
-                            type: "medication",
-                            medicationId: med._id.toString()
-                        }
-                    );
-                    console.log(`Sent reminder to ${user.name} for ${med.name}`);
+                    // Firebase push notifications temporarily disabled
+                    // await sendNotification(
+                    //     user.fcmToken,
+                    //     "Medication Reminder",
+                    //     `Time to take your ${med.name} (${med.dosage})`,
+                    //     {
+                    //         type: "medication",
+                    //         medicationId: med._id.toString()
+                    //     }
+                    // );
+                    console.log(`[DISABLED] Would send reminder to ${user.name} for ${med.name}`);
                 }
             }
         } catch (error) {
@@ -42,7 +44,7 @@ const setupReminderJob = () => {
         }
     });
 
-    console.log("Reminder job scheduled.");
+    console.log("Reminder job scheduled (Firebase notifications disabled).");
 };
 
 export default setupReminderJob;
