@@ -494,20 +494,8 @@ export const analyzeFace = async (req, res) => {
         }
 
         // Save image to disk
-        let imageUrl = null;
-        if (req.file) {
-            const fileName = `${userId}-${Date.now()}.jpg`;
-            const uploadDir = path.join('uploads', 'scans');
-
-            // Ensure directory exists
-            if (!fs.existsSync(uploadDir)) {
-                fs.mkdirSync(uploadDir, { recursive: true });
-            }
-
-            const filePath = path.join(uploadDir, fileName);
-            fs.writeFileSync(filePath, req.file.buffer);
-            imageUrl = `/uploads/scans/${fileName}`;
-        }
+        // Privacy: Do not save image to disk. Only store analysis results.
+        const imageUrl = null;
 
         // Save to Database
         const scan = await HealthScan.create({
