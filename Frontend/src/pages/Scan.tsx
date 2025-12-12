@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import api from "@/lib/api";
+import { modelManager } from "@/lib/tensorflow"; // TensorFlow Manager
 
 type ScanType = "eye" | "teeth" | "skin" | null;
 
@@ -177,6 +178,17 @@ const Scan = () => {
     initMediaPipe();
   }, []);
 
+  // Preload TFJS Models when scan type selected
+  useEffect(() => {
+    if (selectedScan) {
+      // Lazy load checks
+      modelManager.loadMobileNet().catch(console.error);
+      if (selectedScan === 'eye') {
+        modelManager.loadCocoSsd().catch(console.error);
+      }
+    }
+  }, [selectedScan]);
+
   const predictWebcam = useCallback(async () => {
     if (!faceLandmarker || !videoRef.current || !cameraActive) return;
 
@@ -211,10 +223,12 @@ const Scan = () => {
         // Compare X distance from nose to left cheek (#454) vs nose to right cheek (#234)
         const leftCheek = landmarks[454];
         const rightCheek = landmarks[234];
-        const distLeft = Math.abs(nose.x - leftCheek.x);
-        const distRight = Math.abs(nose.x - rightCheek.x);
-        const ratio = distLeft / (distRight + 0.001);
-        const isStraight = ratio > 0.8 && ratio < 1.2;
+        const distLeft = (nose.x - leftCheek.x); // Signed distance
+        const distRight = (rightCheek.x - nose.x); // Signed distance
+
+        // Use ABS for ratio calculation to avoid sign issues if head is flipped
+        const ratio = Math.abs(distLeft) / (Math.abs(distRight) + 0.001);
+        const isStraight = ratio > 0.6 && ratio < 1.5; // Relaxed threshold
 
         // Feedback Logic
         if (!isCentered) {
@@ -224,7 +238,21 @@ const Scan = () => {
           setInstructionText("Look straight ahead");
           setScanProgress(0);
         } else {
-          // Good!
+          // Good! Now run optional Secondary TFJS Check (Throttled: every ~60 frames or when high progress)
+          if (scanProgress > 80 && Math.random() > 0.95) {
+            // Run rarely to save battery, only when almost ready
+            try {
+              const predictions = await modelManager.classify(videoRef.current);
+              // Check if 'person', 'monitor', 'cellular telephone' (common false positives?)
+              // Actually MobileNet is good at "seat belt", "oxygen mask" etc. 
+              // Let's just check if it's NOT something totally wrong if we wanted strictness.
+              // For now, logging it is safer than blocking user.
+              console.log("TFJS Verification:", predictions[0]?.className);
+            } catch (e) {
+              console.warn("TFJS Check skipped", e);
+            }
+          }
+
           setInstructionText("Hold still...");
           setScanProgress((prev) => Math.min(prev + 2, 100)); // Fill in ~50 frames (~1.5s at 30fps)
         }
