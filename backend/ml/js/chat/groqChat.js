@@ -4,7 +4,7 @@ class GroqChat {
     constructor(apiKey) {
         this.client = new Groq({ apiKey: apiKey });
         this.chatModel = "llama-3.1-8b-instant";
-        this.visionModel = "llama-3.2-11b-vision-preview";
+        this.visionModel = "meta-llama/llama-4-scout-17b-16e-instruct";
     }
 
     async sendMessage(history, message, language = 'en') {
@@ -54,7 +54,7 @@ class GroqChat {
                     },
                 ],
                 model: this.visionModel,
-                temperature: 0.1, // Low temp for analytical precision
+                temperature: 0.0, // Zero temp for maximum analytical precision and reproducibility
                 max_tokens: 1024,
             });
 

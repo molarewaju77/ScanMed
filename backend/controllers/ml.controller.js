@@ -175,10 +175,35 @@ export const analyzeFace = async (req, res) => {
 
         // Construct prompt based on scan type for Gemini
         // Construct prompt based on scan type for Gemini
+        // Construct prompt based on scan type for Gemini
+        // Construct prompt based on scan type for Gemini
+        // CHAIN-OF-THOUGHT PROMPTING FOR ACCURACY
         const prompts = {
-            eyes: "Strictly analyze this image to verify it is a closeup of a HUMAN EYE. If it is NOT an eye (e.g. hand, face, object, blurry), return 'Invalid'. If it is a face but too far away, return 'Invalid' and note 'Face detected but too far. Please zoom in on the eye.'. If it IS an eye, analyze for redness, jaundice, cataracts, fatigue, or other visible conditions.",
-            teeth: "Strictly analyze this image to verify it is a closeup of HUMAN TEETH. If it is NOT teeth (e.g. lips only, hand, object), return 'Invalid'. If it IS teeth, analyze for plaque, cavities, or gum issues.",
-            skin: "Strictly analyze this image to verify it is a closeup of HUMAN SKIN. If it is NOT skin (e.g. object, blurry, distant), return 'Invalid'. If it IS skin, analyze for rashes, moles, or dermatological concerns."
+            eyes: `Analyze this eye image step-by-step:
+            1. CHECK LIGHTING: Is the redness just poor lighting or flash reflection? If yes, classify as Good/Low.
+            2. CHECK STRUCTURE: Are the pupils symmetrical? Is the sclera clear?
+            3. DIFFERENTIATE: Distinguish between normal blood vessels (Good/Low) vs diffuse pinkness/swelling (Critical).
+            4. ASSIGN SCORE: 
+               - Critical (0-39): Conjunctivitis, Severe Haze, Infection.
+               - Low (40-60): Dryness, Fatigue, Mild Irritation.
+               - Good (61-90): Clear Eye, Healthy.`,
+
+            teeth: `Analyze this dental image step-by-step:
+            1. CHECK OBJECT: Is this a clear view of teeth/gums?
+            2. SHADOW CHECK (Crucial): Is that dark spot a cavity or just a shadow from the mouth being open? If uncertain, assume Shadow (Low).
+            3. CHECK GUMS: Are they pink (Good) or inflamed bright red (Critical)?
+            4. ASSIGN SCORE:
+               - Critical (0-39): Obvious deep holes (Cavities), Abscess, Severe Gum Bleeding.
+               - Low (40-60): Plaque, Tartar, Stains, Shadows, Mild Inflammation.
+               - Good (61-90): Clean, White-ish, Pink Gums.`,
+
+            skin: `Analyze this skin image step-by-step:
+            1. CHECK SURFACE: Look for texture irregularities (Acne, Rash).
+            2. MOLE ANALYSIS: Use ABCD rule (Asymmetry, Border, Color, Diameter). If symmetrical/even -> Low/Good.
+            3. ASSIGN SCORE:
+               - Critical (0-39): Bleeding, Infection, Asymmetrical Moles, Severe Cystic Acne.
+               - Low (40-60): Common Acne, Dry Skin, Mild Redness.
+               - Good (61-90): Clear, Even Tone.`
         };
 
         const specificPrompt = prompts[scanType] || "Analyze this medical image for health concerns.";
@@ -187,17 +212,16 @@ export const analyzeFace = async (req, res) => {
         IMPORTANT: Return ONLY a valid JSON object with this exact structure (no markdown, no backticks):
         {
             "status": "Good" or "Low" or "Critical" or "Invalid",
-            "healthScore": number betwen 0-100 (100 is perfect health, 0 is critical/emergency),
-            "findings": ["Finding 1", "Finding 2", "Finding 3"],
-            "summary": "Detailed medical observation summary (2-3 sentences). If Invalid, explain why.",
-            "recommendations": ["Action 1", "Action 2", "Action 3"],
+            "healthScore": number betwen 0-100,
+            "findings": ["Finding 1", "Finding 2"],
+            "summary": "Observation summary (2 sentences).",
+            "recommendations": ["Action 1", "Action 2", "Visual Analysis Disclaimer"],
             "needsHospital": true or false
             
-            // Rules for Score/Status:
-            // 61-100: "Good" (Healthy/Safe)
-            // 40-60: "Low" (Concern/Fair)
-            // 0-39: "Critical" (Urgent/Severe)
-            // If Invalid: status="Invalid", healthScore=0, findings=[], summary="Reason..."
+            // STRICT SCORING RULES:
+            // 61-90: "Good" (Healthy) -> Score must be 61-90.
+            // 40-60: "Low" (Concern/Fair) -> Score must be 40-60.
+            // 0-39: "Critical" (Urgent) -> Score must be 0-39.
         }`;
 
         // Try AI vision analysis with Groq
@@ -249,7 +273,8 @@ export const analyzeFace = async (req, res) => {
 
                     // --- 1. CRITICAL CHECKS (0-39) ---
                     // Severe abnormalities requiring medical attention
-                    if (redness.score > 60) {
+                    // TUNE: Threshold raised to 95 to avoid false positives (User Request: "is critical the only result?")
+                    if (redness.score > 95) {
                         scoreCategory = "Critical";
                         primaryIssues.push("Severe Eye Redness (Infection risk)");
                     }
@@ -257,9 +282,7 @@ export const analyzeFace = async (req, res) => {
                         scoreCategory = "Critical";
                         primaryIssues.push("Pupil Abnormality / Clouding");
                     }
-                    // Note: If we had Ptosis/Swelling models, they would go here.
-                    // Simulating "Severe Swelling" if redness is extreme > 80
-                    if (redness.score > 80) primaryIssues.push("Extreme Eye Swelling / Inflammation");
+                    // REMOVED "Extreme Swelling" check to prevent false positives
 
 
                     // --- 2. LOW CHECKS (40-60) ---
@@ -269,9 +292,9 @@ export const analyzeFace = async (req, res) => {
                             scoreCategory = "Low";
                             primaryIssues.push("Eye Strain / Fatigue Indicators");
                         }
-                        if (redness.score > 20 && redness.score <= 60) {
+                        if (redness.score > 30 && redness.score <= 95) {
                             scoreCategory = "Low";
-                            primaryIssues.push("Mild Eye Redness");
+                            primaryIssues.push("Mild-Moderate Eye Redness");
                         }
                         if (cataract.risk === "Moderate") {
                             scoreCategory = "Low";
@@ -317,14 +340,14 @@ export const analyzeFace = async (req, res) => {
 
                     if (scoreCategory === "Critical") {
                         // Range 0-39
-                        if (cataract.risk === "High") calculatedScore = 30 + variance; // Cataract = 30
-                        else if (redness.score > 80) calculatedScore = 20 + variance; // Extreme Infection = 20
-                        else calculatedScore = 35 + variance; // Severe Redness = 35
+                        if (cataract.risk === "High") calculatedScore = 30 + variance;
+                        else if (redness.score > 85) calculatedScore = 20 + variance;
+                        else calculatedScore = 35 + variance;
                     } else if (scoreCategory === "Low") {
                         // Range 40-60
-                        if (redness.score > 40) calculatedScore = 45 + variance; // Moderate Redness = 45
-                        else if (fatigue.isFatigued) calculatedScore = 55 + variance; // Fatigue = 55
-                        else calculatedScore = 58 + variance; // Mild Issues = 58
+                        if (redness.score > 45) calculatedScore = 45 + variance;
+                        else if (fatigue.isFatigued) calculatedScore = 55 + variance;
+                        else calculatedScore = 58 + variance;
                     } else {
                         // Good Range 61-90
                         calculatedScore = 88 + variance;
@@ -371,44 +394,93 @@ export const analyzeFace = async (req, res) => {
                         GumHealthDetector.analyze(req.file.buffer)
                     ]);
 
-                    let isDangerous = false;
-                    let primaryIssue = [];
+                    let primaryIssues = [];
+                    let scoreCategory = "Good"; // Default
 
-                    if (cavity.risk === "High" || gumHealth.inflammationLevel === "High") {
-                        isDangerous = true;
-                        if (cavity.risk === "High") primaryIssue.push("Deep cavities");
-                        if (gumHealth.inflammationLevel === "High") primaryIssue.push("Severe gum inflammation");
-                    } else {
-                        if (cavity.risk === "Moderate") primaryIssue.push("Early cavity signs");
-                        if (gumHealth.inflammationLevel === "Moderate") primaryIssue.push("Gum inflammation");
-                        if (hygiene.score < 50) primaryIssue.push("Poor oral hygiene");
+                    // --- 1. CRITICAL CHECKS (0-39) ---
+                    // Serious oral health issues
+
+                    // SHADOW CHECK: Deep cavities usually equate to poor hygiene.
+                    // If hygiene is Good (>50), "High" cavity risk is likely just shadows in the mouth.
+                    const likelyShadows = hygiene.score > 50;
+
+                    if (cavity.risk === "High" && !likelyShadows) {
+                        scoreCategory = "Critical";
+                        primaryIssues.push("Severe Tooth Decay / Advanced Cavities");
+                    }
+                    if (gumHealth.inflammationLevel === "High") {
+                        scoreCategory = "Critical";
+                        primaryIssues.push("Severe Gum Disease (Periodontitis Risk)");
+                    }
+                    if (hygiene.score < 30) {
+                        scoreCategory = "Critical";
+                        primaryIssues.push("Severe Plaque/Tartar or Damaged Teeth");
                     }
 
-                    const notes = primaryIssue.length > 0
-                        ? `Analysis: ${primaryIssue.join(", ")}. Hygiene Score: ${Math.round(hygiene.score)}/100.`
-                        : "Teeth and gums appear healthy.";
+                    // --- 2. LOW CHECKS (40-60) ---
+                    // Mild to moderate issues w/ upgrades for false-positive Criticals
+                    if (scoreCategory !== "Critical") {
+                        // Map "High" cavity risk to Low if it was skipped above (Shadows)
+                        if (cavity.risk === "Moderate" || (cavity.risk === "High" && likelyShadows)) {
+                            scoreCategory = "Low";
+                            primaryIssues.push(likelyShadows ? "Dark Spots (Possible Shadows/Stains)" : "Early Cavities / Enamel Damage");
+                        }
+                        if (gumHealth.inflammationLevel === "Moderate") {
+                            scoreCategory = "Low";
+                            primaryIssues.push("Mild Gum Inflammation (Gingivitis)");
+                        }
+                        if (hygiene.score >= 30 && hygiene.score < 60) {
+                            scoreCategory = "Low";
+                            primaryIssues.push("Plaque and Tartar Buildup");
+                        }
+                    }
 
-                    let recommendations = isDangerous
-                        ? ["⚠️ Schedule immediate dental appointment", "Avoid hard foods", "Maintain gentle brushing"]
-                        : primaryIssue.length > 0
-                            ? ["Get checkup within 2 weeks", "Brush twice daily", "Floss regularly"]
-                            : ["Continue regular brushing", "Schedule checkup every 6 months"];
+                    const isDangerous = scoreCategory === "Critical";
+
+                    const notes = primaryIssues.length > 0
+                        ? `Detected: ${primaryIssues.join(", ")}.`
+                        : "Teeth and gums appear healthy. No visible cavities or inflammation.";
+
+                    let recommendations = [];
+                    if (scoreCategory === "Critical") {
+                        recommendations = [
+                            "⚠️ Schedule immediate dental appointment",
+                            "Avoid hard foods",
+                            "Maintain gentle brushing",
+                            "Disclaimer: Not a medical diagnosis. Visual analysis only."
+                        ];
+                    } else if (scoreCategory === "Low") {
+                        recommendations = [
+                            "Get checkup within 2 weeks",
+                            "Brush twice daily",
+                            "Floss regularly",
+                            "Disclaimer: Not a medical diagnosis. Visual analysis only."
+                        ];
+                    } else {
+                        recommendations = [
+                            "Continue regular brushing",
+                            "Schedule checkup every 6 months",
+                            "Disclaimer: Not a medical diagnosis. Visual analysis only."
+                        ];
+                    }
 
                     // --- Strict Dynamic Scoring for Teeth ---
-                    // Critical (0-39): Deep Cavities, Severe Gum Disease
-                    // Low (40-60): Poor Hygiene, Early Cavities
-                    // Good (61-90): Healthy
-
-                    let calculatedScore = 85;
+                    let calculatedScore = 88;
                     const variance = getVariance(req.file.buffer);
 
-                    if (cavity.risk === "High" || gumHealth.inflammationLevel === "High") {
-                        calculatedScore = 35 + variance;
-                    } else if (cavity.risk === "Moderate" || gumHealth.inflammationLevel === "Moderate") {
-                        calculatedScore = 55 + variance;
-                    } else if (hygiene.score < 50) {
-                        calculatedScore = 45 + variance;
+                    if (scoreCategory === "Critical") {
+                        // Range 0-39
+                        if (gumHealth.inflammationLevel === "High") calculatedScore = 25 + variance;
+                        else if (cavity.risk === "High") calculatedScore = 30 + variance;
+                        else calculatedScore = 35 + variance;
+                    } else if (scoreCategory === "Low") {
+                        // Range 40-60
+                        if (gumHealth.inflammationLevel === "Moderate") calculatedScore = 55 + variance;
+                        else if (cavity.risk === "High") calculatedScore = 50 + variance; // Downgraded High Risk
+                        else if (cavity.risk === "Moderate") calculatedScore = 52 + variance;
+                        else calculatedScore = 58 + variance;
                     } else {
+                        // Good Range 61-90
                         calculatedScore = 85 + (hygiene.score * 0.05) + variance;
                     }
 
@@ -422,7 +494,7 @@ export const analyzeFace = async (req, res) => {
                     jsonResponse = JSON.stringify({
                         status: finalStatus,
                         healthScore: calculatedScore,
-                        findings: primaryIssue.length > 0 ? primaryIssue : ["Teeth look healthy"],
+                        findings: primaryIssues.length > 0 ? primaryIssues : ["Teeth look healthy"],
                         summary: notes,
                         recommendations: recommendations,
                         needsHospital: isDangerous

@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 export const connectDB = async (retries = 5) => {
     try {
         const conn = await mongoose.connect(process.env.MONGO_URI); // Use the connection string from your environment variables
-        console.log(`Mongodb connected: ${conn.connection.host}`);
+        console.log("Server connected to MongoDB successfully");
     } catch (error) {
         console.log("Error connecting to MongoDB:", error.message);
         if (retries === 0) {
