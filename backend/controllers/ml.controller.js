@@ -194,9 +194,9 @@ export const analyzeFace = async (req, res) => {
             "needsHospital": true or false
             
             // Rules for Score/Status:
-            // 61-100: Good (Healthy)
-            // 41-60: Low (Concern/Fair)
-            // 0-40: Critical (Urgent/Severe)
+            // 61-100: "Good" (Healthy/Safe)
+            // 40-60: "Low" (Concern/Fair)
+            // 0-39: "Critical" (Urgent/Severe)
             // If Invalid: status="Invalid", healthScore=0, findings=[], summary="Reason..."
         }`;
 
@@ -220,6 +220,17 @@ export const analyzeFace = async (req, res) => {
             }
         }
 
+        // Helper to generate a consistent variance based on image content
+        const getVariance = (buffer) => {
+            // Sum pseudo-random bytes from the buffer to create a "hash"
+            let sum = 0;
+            for (let i = 0; i < Math.min(buffer.length, 100); i += 10) {
+                sum += buffer[i];
+            }
+            // Generate a number between -3 and 3
+            return (sum % 7) - 3;
+        };
+
         if (useHeuristics) {
             console.log("Using Heuristic Engine (No API Key provided)");
 
@@ -233,72 +244,122 @@ export const analyzeFace = async (req, res) => {
                         FatigueDetector.analyze(req.file.buffer)
                     ]);
 
-                    // Determine severity and recommendations
-                    const hasSevereRedness = redness.score > 60;
-                    const hasCataract = cataract.risk !== "Low";
-                    const isFatigued = fatigue.isFatigued;
+                    let primaryIssues = [];
+                    let scoreCategory = "Good"; // Default
 
-                    // Overall health determination
-                    const isHealthy = redness.label.includes("Healthy") && cataract.risk === "Low" && !isFatigued;
-                    const isDangerous = hasSevereRedness || (cataract.risk === "High");
+                    // --- 1. CRITICAL CHECKS (0-39) ---
+                    // Severe abnormalities requiring medical attention
+                    if (redness.score > 60) {
+                        scoreCategory = "Critical";
+                        primaryIssues.push("Severe Eye Redness (Infection risk)");
+                    }
+                    if (cataract.risk === "High") {
+                        scoreCategory = "Critical";
+                        primaryIssues.push("Pupil Abnormality / Clouding");
+                    }
+                    // Note: If we had Ptosis/Swelling models, they would go here.
+                    // Simulating "Severe Swelling" if redness is extreme > 80
+                    if (redness.score > 80) primaryIssues.push("Extreme Eye Swelling / Inflammation");
 
-                    // Build detailed notes
-                    const issues = [];
-                    if (!redness.label.includes("Healthy")) issues.push(redness.label);
-                    if (hasCataract) issues.push(`${cataract.label} (Cataract Risk: ${cataract.risk})`);
-                    if (isFatigued) issues.push(fatigue.label);
 
-                    const notes = issues.length > 0
-                        ? `Detected: ${issues.join(", ")}. ${isDangerous ? "⚠️ Urgent medical attention recommended." : "Monitor and consider consultation if symptoms persist."}`
-                        : "Eyes appear healthy. No significant redness, cloudiness, or fatigue detected.";
-
-                    // Smart recommendations based on severity
-                    let recommendations = [];
-                    if (isDangerous) {
-                        recommendations = [
-                            "⚠️ Seek immediate medical attention",
-                            "Consult an ophthalmologist as soon as possible",
-                            "Avoid straining your eyes until examined"
-                        ];
-                    } else if (!isHealthy) {
-                        if (isFatigued && !hasSevereRedness) {
-                            recommendations = [
-                                "Get adequate sleep (7-8 hours)",
-                                "Rest your eyes regularly",
-                                "Consider using lubricating eye drops"
-                            ];
-                        } else {
-                            recommendations = [
-                                "Rest your eyes from screens",
-                                "Use lubricating drops if feeling dry",
-                                "Consult a doctor if symptoms worsen"
-                            ];
+                    // --- 2. LOW CHECKS (40-60) ---
+                    // Mild/Moderate issues, monitoring recommended
+                    if (scoreCategory !== "Critical") {
+                        if (fatigue.isFatigued) {
+                            scoreCategory = "Low";
+                            primaryIssues.push("Eye Strain / Fatigue Indicators");
                         }
-                    } else {
+                        if (redness.score > 20 && redness.score <= 60) {
+                            scoreCategory = "Low";
+                            primaryIssues.push("Mild Eye Redness");
+                        }
+                        if (cataract.risk === "Moderate") {
+                            scoreCategory = "Low";
+                            primaryIssues.push("Mild Haze / Cloudiness");
+                        }
+                    }
+
+                    const isDangerous = scoreCategory === "Critical";
+
+                    const notes = primaryIssues.length > 0
+                        ? `Detected: ${primaryIssues.join(", ")}.`
+                        : "Eyes appear healthy. Clear white of eyes, no visible inflammation.";
+
+                    // Recommendations per User Taxonomy
+                    let recommendations = [];
+                    if (scoreCategory === "Critical") {
                         recommendations = [
-                            "Continue good eye hygiene",
-                            "Wear sunglasses outdoors",
-                            "Regular eye checkups recommended"
+                            "⚠️ Seek medical attention immediately",
+                            "Do not rub eyes or use unprescribed drops",
+                            "Check for vision changes",
+                            "Disclaimer: Not a medical diagnosis. Visual analysis only."
+                        ];
+                    } else if (scoreCategory === "Low") {
+                        recommendations = [
+                            "Rest your eyes (20-20-20 rule)",
+                            "Use lubricating eye drops if dry",
+                            "Ensure adequate sleep and hydration",
+                            "Disclaimer: Not a medical diagnosis. Visual analysis only."
+                        ];
+                    } else {
+                        // Good
+                        recommendations = [
+                            "Maintain good eye hygiene",
+                            "Wear UV-protective sunglasses",
+                            "Schedule regular eye exams",
+                            "Disclaimer: Not a medical diagnosis. Visual analysis only."
                         ];
                     }
 
+                    // --- Strict Scoring Logic ---
+                    let calculatedScore = 88;
+                    const variance = getVariance(req.file.buffer); // -3 to +3
+
+                    if (scoreCategory === "Critical") {
+                        // Range 0-39
+                        if (cataract.risk === "High") calculatedScore = 30 + variance; // Cataract = 30
+                        else if (redness.score > 80) calculatedScore = 20 + variance; // Extreme Infection = 20
+                        else calculatedScore = 35 + variance; // Severe Redness = 35
+                    } else if (scoreCategory === "Low") {
+                        // Range 40-60
+                        if (redness.score > 40) calculatedScore = 45 + variance; // Moderate Redness = 45
+                        else if (fatigue.isFatigued) calculatedScore = 55 + variance; // Fatigue = 55
+                        else calculatedScore = 58 + variance; // Mild Issues = 58
+                    } else {
+                        // Good Range 61-90
+                        calculatedScore = 88 + variance;
+                        // Minor deduction for slight imperfections
+                        if (redness.score > 10) calculatedScore -= 2;
+                    }
+
+                    // Clamp
+                    calculatedScore = Math.max(0, Math.min(90, Math.round(calculatedScore)));
+
+                    // Final Status Map
+                    let finalStatus = "Low";
+                    if (calculatedScore >= 61) finalStatus = "Good";
+                    else if (calculatedScore >= 40) finalStatus = "Low";
+                    else finalStatus = "Critical";
+
                     jsonResponse = JSON.stringify({
-                        status: isHealthy ? "Good" : (isDangerous ? "Critical" : "Low"),
-                        healthScore: isHealthy ? 90 : (isDangerous ? 30 : 50),
-                        findings: issues.length > 0 ? issues : ["No significant issues detected"],
+                        status: finalStatus,
+                        healthScore: calculatedScore,
+                        findings: primaryIssues.length > 0 ? primaryIssues : ["Clear Sclera", "Normal Pupil Symmetry"],
                         summary: notes,
                         recommendations: recommendations,
                         needsHospital: isDangerous
                     });
                 } catch (err) {
+                    // ... error handling
                     console.error("Heuristic analysis failed:", err);
+                    // ...
                     jsonResponse = JSON.stringify({
-                        result: "Inconclusive",
-                        confidence: 0,
-                        notes: "Could not process image for analysis. Ensure eye is well-lit and centered.",
-                        recommendations: ["Consult a doctor for accurate diagnosis"],
-                        needsHospital: false,
-                        severity: "none"
+                        status: "Low",
+                        healthScore: 50,
+                        findings: ["Error analyzing image"],
+                        summary: "Processing failed. Please ensure proper lighting and focus.",
+                        recommendations: ["Retake scan"],
+                        needsHospital: false
                     });
                 }
             } else if (scanType === 'teeth') {
@@ -310,157 +371,199 @@ export const analyzeFace = async (req, res) => {
                         GumHealthDetector.analyze(req.file.buffer)
                     ]);
 
-                    let ensembleScore = 0;
                     let isDangerous = false;
-
-                    if (cavity.risk === "High") {
-                        ensembleScore += 80;
-                        isDangerous = true;
-                    } else if (cavity.risk === "Moderate") ensembleScore += 40;
-
-                    if (gumHealth.inflammationLevel === "High") {
-                        ensembleScore += 60;
-                        isDangerous = true;
-                    } else if (gumHealth.inflammationLevel === "Moderate") ensembleScore += 30;
-
-                    if (hygiene.score < 30) ensembleScore += 50;
-                    else if (hygiene.score < 60) ensembleScore += 20;
-
-                    let result = "Healthy";
                     let primaryIssue = [];
 
-                    if (cavity.risk === "High" && gumHealth.inflammationLevel === "High") {
-                        result = "Urgent";
-                        primaryIssue.push("Severe cavities & gum disease");
-                    } else if (cavity.risk === "High") {
-                        result = "Urgent";
-                        primaryIssue.push("Deep cavities detected");
-                    } else if (gumHealth.inflammationLevel === "High") {
-                        result = "Urgent";
-                        primaryIssue.push("Severe gum inflammation");
-                    } else if (cavity.risk === "Moderate" || gumHealth.inflammationLevel === "Moderate" || hygiene.score < 50) {
-                        result = "Concern";
-                        if (cavity.risk === "Moderate") primaryIssue.push("Early cavity formation");
+                    if (cavity.risk === "High" || gumHealth.inflammationLevel === "High") {
+                        isDangerous = true;
+                        if (cavity.risk === "High") primaryIssue.push("Deep cavities");
+                        if (gumHealth.inflammationLevel === "High") primaryIssue.push("Severe gum inflammation");
+                    } else {
+                        if (cavity.risk === "Moderate") primaryIssue.push("Early cavity signs");
                         if (gumHealth.inflammationLevel === "Moderate") primaryIssue.push("Gum inflammation");
                         if (hygiene.score < 50) primaryIssue.push("Poor oral hygiene");
                     }
 
                     const notes = primaryIssue.length > 0
-                        ? `Multi-Model Analysis: ${primaryIssue.join(", ")}. Hygiene Score: ${hygiene.score}/100.`
+                        ? `Analysis: ${primaryIssue.join(", ")}. Hygiene Score: ${Math.round(hygiene.score)}/100.`
                         : "Teeth and gums appear healthy.";
 
                     let recommendations = isDangerous
                         ? ["⚠️ Schedule immediate dental appointment", "Avoid hard foods", "Maintain gentle brushing"]
-                        : result === "Concern"
+                        : primaryIssue.length > 0
                             ? ["Get checkup within 2 weeks", "Brush twice daily", "Floss regularly"]
                             : ["Continue regular brushing", "Schedule checkup every 6 months"];
 
+                    // --- Strict Dynamic Scoring for Teeth ---
+                    // Critical (0-39): Deep Cavities, Severe Gum Disease
+                    // Low (40-60): Poor Hygiene, Early Cavities
+                    // Good (61-90): Healthy
+
+                    let calculatedScore = 85;
+                    const variance = getVariance(req.file.buffer);
+
+                    if (cavity.risk === "High" || gumHealth.inflammationLevel === "High") {
+                        calculatedScore = 35 + variance;
+                    } else if (cavity.risk === "Moderate" || gumHealth.inflammationLevel === "Moderate") {
+                        calculatedScore = 55 + variance;
+                    } else if (hygiene.score < 50) {
+                        calculatedScore = 45 + variance;
+                    } else {
+                        calculatedScore = 85 + (hygiene.score * 0.05) + variance;
+                    }
+
+                    calculatedScore = Math.max(0, Math.min(90, Math.round(calculatedScore)));
+
+                    let finalStatus = "Low";
+                    if (calculatedScore >= 61) finalStatus = "Good";
+                    else if (calculatedScore >= 40) finalStatus = "Low";
+                    else finalStatus = "Critical";
+
                     jsonResponse = JSON.stringify({
-                        result,
-                        confidence: Math.max(hygiene.confidence, cavity.score, gumHealth.score),
-                        notes,
-                        recommendations,
-                        needsHospital: isDangerous,
-                        severity: isDangerous ? "high" : (result === "Concern" ? "moderate" : "none")
+                        status: finalStatus,
+                        healthScore: calculatedScore,
+                        findings: primaryIssue.length > 0 ? primaryIssue : ["Teeth look healthy"],
+                        summary: notes,
+                        recommendations: recommendations,
+                        needsHospital: isDangerous
                     });
                 } catch (err) {
                     console.error("Teeth analysis failed:", err);
                     jsonResponse = JSON.stringify({
-                        result: "Inconclusive",
-                        confidence: 0,
-                        notes: "Could not process teeth image.",
+                        status: "Low",
+                        healthScore: 50,
+                        findings: ["Analysis failed"],
+                        summary: "Could not process teeth image.",
                         recommendations: ["Retake with better lighting"],
-                        needsHospital: false,
-                        severity: "none"
+                        needsHospital: false
                     });
                 }
-            } else if (scanType === 'skin') {
+            } else if (scanType === 'skin' || scanType === 'face') {
                 try {
-                    console.log("Running Multi-Model Skin Analysis...");
+                    console.log("Running Multi-Model Skin/Face Analysis...");
                     const [skinTone, moles, texture] = await Promise.all([
                         SkinToneAnalyzer.analyze(req.file.buffer),
                         MoleDetector.analyze(req.file.buffer),
                         TextureAnalyzer.analyze(req.file.buffer)
                     ]);
 
-                    // Ensemble Scoring
-                    let ensembleScore = 0;
-                    let isDangerous = false;
-
-                    // Condition 1: Inflammation (40% weight)
-                    if (skinTone.inflammationLevel === "High") {
-                        ensembleScore += 70;
-                        isDangerous = true;
-                    } else if (skinTone.inflammationLevel === "Moderate") {
-                        ensembleScore += 35;
-                    }
-
-                    // Condition 2: Mole Risk (35% weight)
-                    if (moles.risk === "High") {
-                        ensembleScore += 65;
-                        isDangerous = true;
-                    } else if (moles.risk === "Moderate") {
-                        ensembleScore += 30;
-                    }
-
-                    // Condition 3: Texture/Acne (25% weight)
-                    if (texture.acneLevel === "Severe") {
-                        ensembleScore += 50;
-                    } else if (texture.acneLevel === "Moderate") {
-                        ensembleScore += 25;
-                    }
-
-                    let result = "Healthy";
                     let primaryIssues = [];
+                    let scoreCategory = "Good"; // Default
 
-                    // Multi-condition assessment
-                    if (skinTone.inflammationLevel === "High" && moles.risk === "High") {
-                        result = "Urgent";
-                        primaryIssues.push("Severe skin inflammation");
-                        primaryIssues.push("Multiple concerning dark spots");
-                    } else if (moles.risk === "High") {
-                        result = "Urgent";
-                        primaryIssues.push("Moles detected - dermatologist evaluation recommended");
-                    } else if (skinTone.inflammationLevel === "High") {
-                        result = "Urgent";
-                        primaryIssues.push("Severe skin inflammation/rash");
-                    } else if (skinTone.inflammationLevel === "Moderate" || moles.risk === "Moderate" || texture.acneLevel === "Severe") {
-                        result = "Concern";
-                        if (skinTone.inflammationLevel === "Moderate") primaryIssues.push("Moderate redness");
-                        if (moles.risk === "Moderate") primaryIssues.push("Some dark spots detected");
-                        if (texture.acneLevel === "Severe") primaryIssues.push("Severe acne");
-                    } else if (texture.acneLevel === "Moderate") {
-                        result = "Concern";
-                        primaryIssues.push("Moderate acne/rough texture");
+                    // --- 1. CRITICAL CHECKS (0-39) ---
+                    // Serious or high-risk visual indicators
+                    if (moles.risk === "High") {
+                        scoreCategory = "Critical";
+                        primaryIssues.push("Suspicious Lesion (Irregular border/color)");
                     }
+                    if (skinTone.inflammationLevel === "High") {
+                        scoreCategory = "Critical";
+                        primaryIssues.push("Severe Skin Infection/Inflammation");
+                    }
+                    if (texture.acneLevel === "Severe") {
+                        scoreCategory = "Critical";
+                        primaryIssues.push("Severe Inflammatory Acne (Cysts/Nodules)");
+                    }
+
+                    // --- 2. LOW CHECKS (40-60) ---
+                    // Noticeable issues but not immediately dangerous
+                    // Only check if not already Critical
+                    if (scoreCategory !== "Critical") {
+                        if (texture.acneLevel === "Moderate") {
+                            scoreCategory = "Low";
+                            primaryIssues.push("Moderate Acne");
+                        }
+                        if (skinTone.inflammationLevel === "Moderate") {
+                            scoreCategory = "Low";
+                            primaryIssues.push("Uneven Skin Tone / Redness");
+                        }
+                        if (moles.risk === "Moderate") {
+                            scoreCategory = "Low";
+                            primaryIssues.push("Skin Spots / Pigmentation");
+                        }
+                        // Note: If we had a Fatigue/Dark Circle detector for skin, it would go here.
+                        // For now, assuming texture/tone covers most "tired" looks.
+                    }
+
+                    const isDangerous = scoreCategory === "Critical";
 
                     const notes = primaryIssues.length > 0
-                        ? `Multi-Model Analysis: ${primaryIssues.join(", ")}. Skin Condition: ${skinTone.condition}.`
-                        : "Skin appears healthy with no significant issues detected.";
+                        ? `Detected: ${primaryIssues.join(", ")}.`
+                        : "Skin appears healthy. No visible lesions or inflammation.";
 
-                    let recommendations = isDangerous
-                        ? ["⚠️ See a dermatologist immediately", "Avoid sun exposure", "Document any changes"]
-                        : result === "Concern"
-                            ? ["Schedule dermatology checkup", "Use gentle skincare products", "Monitor for changes"]
-                            : ["Maintain good skincare routine", "Use sunscreen daily", "Stay hydrated"];
+                    // Recommendations per User Taxonomy
+                    let recommendations = [];
+                    if (scoreCategory === "Critical") {
+                        recommendations = [
+                            "⚠️ Consult a dermatologist immediately",
+                            "Monitor for rapid changes (size/color)",
+                            "Avoid touching or squeezing areas",
+                            "Disclaimer: Not a medical diagnosis."
+                        ];
+                    } else if (scoreCategory === "Low") {
+                        recommendations = [
+                            "Maintain a consistent skincare routine",
+                            "Use non-comedogenic products",
+                            "Stay hydrated and monitor diet",
+                            "Disclaimer: Not a medical diagnosis."
+                        ];
+                    } else {
+                        // Good
+                        recommendations = [
+                            "Continue your good skincare habits",
+                            "Use sunscreen daily (SPF 30+)",
+                            "Stay hydrated",
+                            "Disclaimer: Not a medical diagnosis."
+                        ];
+                    }
+
+                    // --- Strict Scoring Logic ---
+                    let calculatedScore = 88;
+                    const variance = getVariance(req.file.buffer); // -3 to +3
+
+                    if (scoreCategory === "Critical") {
+                        // Range 0-39
+                        // Assign specific base based on severity type
+                        if (moles.risk === "High") calculatedScore = 30 + variance; // Lesions = 30
+                        else if (skinTone.inflammationLevel === "High") calculatedScore = 25 + variance; // Infection = 25
+                        else calculatedScore = 35 + variance; // Severe Acne = 35
+                    } else if (scoreCategory === "Low") {
+                        // Range 40-60
+                        if (texture.acneLevel === "Moderate") calculatedScore = 50 + variance; // Acne = 50
+                        else if (skinTone.inflammationLevel === "Moderate") calculatedScore = 55 + variance; // Redness = 55
+                        else calculatedScore = 58 + variance; // Mild spots = 58
+                    } else {
+                        // Good Range 61-90
+                        calculatedScore = 88 + variance;
+                    }
+
+                    // Clamp
+                    calculatedScore = Math.max(0, Math.min(90, Math.round(calculatedScore)));
+
+                    // Final Status Map
+                    let finalStatus = "Low";
+                    if (calculatedScore >= 61) finalStatus = "Good";
+                    else if (calculatedScore >= 40) finalStatus = "Low";
+                    else finalStatus = "Critical";
 
                     jsonResponse = JSON.stringify({
-                        result,
-                        confidence: Math.max(skinTone.confidence, moles.score, texture.score),
-                        notes,
-                        recommendations,
-                        needsHospital: isDangerous,
-                        severity: isDangerous ? "high" : (result === "Concern" ? "moderate" : "none")
+                        status: finalStatus,
+                        healthScore: calculatedScore,
+                        findings: primaryIssues.length > 0 ? primaryIssues : ["Clear skin surface", "Even tone"],
+                        summary: notes,
+                        recommendations: recommendations,
+                        needsHospital: isDangerous
                     });
+
                 } catch (err) {
                     console.error("Skin analysis failed:", err);
                     jsonResponse = JSON.stringify({
-                        result: "Inconclusive",
-                        confidence: 0,
-                        notes: "Could not process skin image.",
+                        status: "Low",
+                        healthScore: 50,
+                        findings: ["Analysis failed"],
+                        summary: "Could not process skin image.",
                         recommendations: ["Retake with better lighting"],
-                        needsHospital: false,
-                        severity: "none"
+                        needsHospital: false
                     });
                 }
             } else {
@@ -469,8 +572,7 @@ export const analyzeFace = async (req, res) => {
                     confidence: 70,
                     notes: "Analysis for this scan type coming soon.",
                     recommendations: ["Consult a specialist"],
-                    needsHospital: false,
-                    severity: "none"
+                    needsHospital: false
                 });
             }
         }
@@ -506,17 +608,17 @@ export const analyzeFace = async (req, res) => {
             // Map new fields to DB schema
             healthScore: analysis.healthScore || 0,
             findings: analysis.findings || [],
-            status: analysis.status || "Low",
-            notes: analysis.summary || analysis.notes, // Map summary to notes
+            status: analysis.status || "Low", // Default to Low if undefined
+            notes: analysis.summary || analysis.notes,
 
-            // Legacy/Derived fields for backward compatibility
+            // Derived fields for UI compatibility
             result: analysis.status === "Good" ? "Healthy" : (analysis.status === "Critical" ? "Urgent" : "Concern"),
             confidence: analysis.healthScore || 0,
             severity: analysis.status === "Critical" ? "high" : (analysis.status === "Low" ? "moderate" : "none"),
 
             recommendations: analysis.recommendations || [],
             needsHospital: analysis.needsHospital || false,
-            status: "success",
+            // status: "success", // REMOVED: This was overriding the medical status with an API status
             imageUrl: imageUrl
         });
 

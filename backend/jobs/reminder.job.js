@@ -1,4 +1,5 @@
 import cron from "node-cron";
+import mongoose from "mongoose";
 import { Medication } from "../models/medication.model.js";
 import { User } from "../models/user.model.js";
 // Firebase push notifications temporarily disabled
@@ -8,6 +9,11 @@ const setupReminderJob = () => {
     // Run every minute
     cron.schedule("* * * * *", async () => {
         try {
+            if (mongoose.connection.readyState !== 1) {
+                console.warn("Skipping reminder job: DB not connected");
+                return;
+            }
+
             const now = new Date();
             const currentHour = now.getHours().toString().padStart(2, "0");
             const currentMinute = now.getMinutes().toString().padStart(2, "0");

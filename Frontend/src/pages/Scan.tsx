@@ -209,53 +209,140 @@ const Scan = () => {
         // Face Detected
         const landmarks = results.faceLandmarks[0];
 
-        // 1. Centering Check (Nose tip #1)
-        const nose = landmarks[1];
-        const isCenteredX = nose.x > 0.4 && nose.x < 0.6;
-        const isCenteredY = nose.y > 0.4 && nose.y < 0.6;
-        const isCentered = isCenteredX && isCenteredY;
+        // Logic Choice based on Scan Type
+        let isAligned = false;
 
-        // 2. Pose Check (Use eye depth difference for yaw approximation or blendshapes)
-        // Simple heuristic: Left eye outer (#33) vs Right eye outer (#263) Z-depth difference?
-        // Better: Use Face Blendshapes if available (faceLandmarker.outputFaceBlendshapes = true)
-        // Since we enabled blendshapes, let's use them if possible, otherwise geometric fallback
-        // Actually, let's stick to geometric for simplicity in this version:
-        // Compare X distance from nose to left cheek (#454) vs nose to right cheek (#234)
-        const leftCheek = landmarks[454];
-        const rightCheek = landmarks[234];
-        const distLeft = (nose.x - leftCheek.x); // Signed distance
-        const distRight = (rightCheek.x - nose.x); // Signed distance
+        if (selectedScan === 'eye' || selectedScan === 'eyes') {
+          // EYES: Check Binocular Mask Alignment
+          // Landmarks: 468 (Left Iris), 473 (Right Iris)
+          // Note: Indices might vary by Mesh model, but 468/473 are standard Refined Mesh Iris centers.
+          // Fallback to Pupils: Left 468, Right 473.
 
-        // Use ABS for ratio calculation to avoid sign issues if head is flipped
-        const ratio = Math.abs(distLeft) / (Math.abs(distRight) + 0.001);
-        const isStraight = ratio > 0.6 && ratio < 1.5; // Relaxed threshold
+          const leftIris = landmarks[468];
+          const rightIris = landmarks[473];
 
-        // Feedback Logic
-        if (!isCentered) {
-          setInstructionText(selectedScan === 'teeth' ? "Center your mouth" : "Center your face in the circle");
-          setScanProgress(0);
-        } else if (!isStraight) {
-          setInstructionText("Look straight ahead");
-          setScanProgress(0);
-        } else {
-          // Good! Now run optional Secondary TFJS Check (Throttled: every ~60 frames or when high progress)
-          if (scanProgress > 80 && Math.random() > 0.95) {
-            // Run rarely to save battery, only when almost ready
-            try {
-              const predictions = await modelManager.classify(videoRef.current);
-              // Check if 'person', 'monitor', 'cellular telephone' (common false positives?)
-              // Actually MobileNet is good at "seat belt", "oxygen mask" etc. 
-              // Let's just check if it's NOT something totally wrong if we wanted strictness.
-              // For now, logging it is safer than blocking user.
-              console.log("TFJS Verification:", predictions[0]?.className);
-            } catch (e) {
-              console.warn("TFJS Check skipped", e);
+          if (leftIris && rightIris) {
+            // Map to 320x320 grid
+            // Mirroring is active (checked via CSS), but MediaPipe coords are normalized 0-1 for the image source.
+            // If CSS scales X by -1, visual is mirrored.
+            // We just need to check if the RAW landmarks match the RAW hole positions relative to the frame.
+            // Holes are at cx=100 (Left on screen -> Right Eye of user) and cx=220 (Right on screen -> Left Eye of user).
+            // Wait, if it's a mirror:
+            // User's Left Eye (Actual) appears on Left of Screen.
+            // So SVG Hole Left (cx=100) should match User's Left Eye (Landmark 468).
+
+            // Coordinates (0-1) mapping to (0-320)
+            const lx = leftIris.x * 320;
+            const ly = leftIris.y * 320;
+            const rx = rightIris.x * 320;
+            const ry = rightIris.y * 320;
+
+            // Hole Tests
+            // Left Hole: cx=100, cy=160, rx=35, ry=25
+            // Right Hole: cx=220, cy=160, rx=35, ry=25
+            // Simple box check or elliptic check
+            const inLeft = Math.abs(lx - 100) < 40 && Math.abs(ly - 160) < 40;
+            const inRight = Math.abs(rx - 220) < 40 && Math.abs(ry - 160) < 40;
+
+            if (inLeft && inRight) {
+              isAligned = true;
+            }
+          } else {
+            // Fallback if iris landmarks missing (older devices?) - check regular eye corners
+            // Left Eye: 33, 133. Right Eye: 362, 263.
+            // Basic centering check
+            const nose = landmarks[1];
+            if (nose.x > 0.4 && nose.x < 0.6 && nose.y > 0.4 && nose.y < 0.6) isAligned = true;
+          }
+
+          if (!isAligned) {
+            setInstructionText("Align your eyes with the mask");
+            setScanProgress(0);
+          } else {
+            // Aligned!
+            setInstructionText("Hold still...");
+            setScanProgress((prev) => Math.min(prev + 2.5, 100)); // Faster filling for eyes
+          }
+
+        } else if (selectedScan === 'teeth') {
+          // TEETH: Check if Mouth is Open & Aligned
+          // Landmarks: 13 (Upper Lip Inner), 14 (Lower Lip Inner)
+          // Normalization: 10 (Top Head), 152 (Chin)
+          const upperLip = landmarks[13];
+          const lowerLip = landmarks[14];
+          const topHead = landmarks[10];
+          const chin = landmarks[152];
+          const nose = landmarks[1];
+
+          let isMouthOpen = false;
+          let isCentered = false;
+
+          if (upperLip && lowerLip && topHead && chin) {
+            const mouthHeight = Math.abs(upperLip.y - lowerLip.y);
+            const faceHeight = Math.abs(topHead.y - chin.y);
+            const openRatio = mouthHeight / (faceHeight + 0.001); // Prevent div/0
+
+            // Threshold: > 0.035 implies mouth is open wide enough
+            if (openRatio > 0.035) {
+              isMouthOpen = true;
             }
           }
 
-          setInstructionText("Hold still...");
-          setScanProgress((prev) => Math.min(prev + 2, 100)); // Fill in ~50 frames (~1.5s at 30fps)
+          // Centering (Mouth should be near center-low of the frame)
+          // Mouth Center ~ (upperLip + lowerLip) / 2
+          // Frame Center ~ 0.5, 0.5
+          // Visual Mask Center is cx=160, cy=180 (Normalized: 0.5, 0.56)
+          if (upperLip && lowerLip) {
+            const mouthCx = (upperLip.x + lowerLip.x) / 2;
+            const mouthCy = (upperLip.y + lowerLip.y) / 2;
+            // Tolerance +/- 0.15
+            if (Math.abs(mouthCx - 0.5) < 0.15 && Math.abs(mouthCy - 0.56) < 0.2) {
+              isCentered = true;
+            }
+          }
+
+          if (!isMouthOpen) {
+            setInstructionText("Open mouth wider");
+            setScanProgress(0);
+          } else if (!isCentered) {
+            setInstructionText("Align mouth with mask");
+            setScanProgress(0);
+          } else {
+            setInstructionText("Hold still...");
+            setScanProgress((prev) => Math.min(prev + 2.5, 100));
+          }
+
+        } else {
+          // OTHER SCANS (Face/Teeth) - Original Geometry Logic
+          // 1. Centering Check (Nose tip #1)
+          const nose = landmarks[1];
+          const isCenteredX = nose.x > 0.4 && nose.x < 0.6;
+          const isCenteredY = nose.y > 0.4 && nose.y < 0.6;
+          const isCentered = isCenteredX && isCenteredY;
+
+          // 2. Pose Check
+          const leftCheek = landmarks[454];
+          const rightCheek = landmarks[234];
+          const distLeft = (nose.x - leftCheek.x);
+          const distRight = (rightCheek.x - nose.x);
+          const ratio = Math.abs(distLeft) / (Math.abs(distRight) + 0.001);
+          const isStraight = ratio > 0.6 && ratio < 1.5;
+
+          // Feedback Logic
+          if (!isCentered) {
+            setInstructionText(selectedScan === 'teeth' ? "Center your mouth" : "Center your face in the circle");
+            setScanProgress(0);
+          } else if (!isStraight) {
+            setInstructionText("Look straight ahead");
+            setScanProgress(0);
+          } else {
+            // Good! 
+            setInstructionText("Hold still...");
+            setScanProgress((prev) => Math.min(prev + 2, 100));
+          }
         }
+
+        // Common ready check
         setScanReady(scanProgress >= 100);
 
       } else {
@@ -263,7 +350,7 @@ const Scan = () => {
         if (selectedScan === 'teeth') {
           setInstructionText("Open your mouth & show teeth");
         } else {
-          setInstructionText("Position your face in the frame");
+          setInstructionText(selectedScan === 'eye' || selectedScan === 'eyes' ? "Align eyes with mask" : "Position your face in the frame");
         }
         setScanProgress(0);
         setScanReady(false);
@@ -562,28 +649,92 @@ const Scan = () => {
                 {/* Fixed Container for Stability */}
                 <div className="relative w-[320px] h-[320px] flex items-center justify-center">
 
-                  {/* Ring SVG Layer */}
-                  <div className="absolute inset-0 z-20 pointer-events-none">
-                    <svg className="w-full h-full transform -rotate-90">
-                      {/* Background Track */}
-                      <circle
-                        cx="160" cy="160" r="148"
-                        stroke="white" strokeWidth="4" fill="none" opacity="0.3"
-                      />
-                      {/* Progress Fill */}
-                      <circle
-                        cx="160" cy="160" r="148"
-                        stroke="#10B981" strokeWidth="6" fill="none"
-                        strokeDasharray={2 * Math.PI * 148}
-                        strokeDashoffset={2 * Math.PI * 148 * (1 - scanProgress / 100)}
-                        strokeLinecap="round"
-                        className="transition-all duration-300 ease-linear"
-                      />
-                    </svg>
-                  </div>
+                  {/* EYE SCAN MASK (Dual Holes) */}
+                  {selectedScan === 'eye' || selectedScan === 'eyes' ? (
+                    <div className="absolute inset-0 z-20 pointer-events-none rounded-full overflow-hidden">
+                      <svg className="w-full h-full" viewBox="0 0 320 320">
+                        <defs>
+                          <mask id="eye-mask">
+                            {/* White Circle Base */}
+                            <circle cx="160" cy="160" r="160" fill="white" />
+                            {/* Left Eye Hole (Transparent) */}
+                            <ellipse cx="100" cy="160" rx="35" ry="25" fill="black" />
+                            {/* Right Eye Hole (Transparent) */}
+                            <ellipse cx="220" cy="160" rx="35" ry="25" fill="black" />
+                          </mask>
+                        </defs>
+                        {/* Dark Overlay with Holes */}
+                        <circle cx="160" cy="160" r="160" fill="rgba(0,0,0,0.85)" mask="url(#eye-mask)" />
 
-                  {/* Camera Video Source - Circular Mask */}
-                  <div className="w-[290px] h-[290px] rounded-full overflow-hidden border-4 border-white/20 shadow-2xl relative z-10 bg-black">
+                        {/* Visual Guides */}
+                        <ellipse
+                          cx="100" cy="160" rx="36" ry="26"
+                          fill="none"
+                          stroke={isStable && instructionText === "Hold still..." ? "#10B981" : "white"}
+                          strokeWidth="3"
+                          opacity="0.8"
+                        />
+                        <ellipse
+                          cx="220" cy="160" rx="36" ry="26"
+                          fill="none"
+                          stroke={isStable && instructionText === "Hold still..." ? "#10B981" : "white"}
+                          strokeWidth="3"
+                          opacity="0.8"
+                        />
+                      </svg>
+                    </div>
+                  ) : selectedScan === 'teeth' ? (
+                    /* TEETH SCAN MASK (Mouth Shape) */
+                    <div className="absolute inset-0 z-20 pointer-events-none rounded-full overflow-hidden">
+                      <svg className="w-full h-full" viewBox="0 0 320 320">
+                        <defs>
+                          <mask id="mouth-mask">
+                            {/* White Circle Base */}
+                            <circle cx="160" cy="160" r="160" fill="white" />
+                            {/* Mouth Hole (Transparent) - Shifted slightly down */}
+                            <ellipse cx="160" cy="180" rx="90" ry="45" fill="black" />
+                          </mask>
+                        </defs>
+                        {/* Dark Overlay with Hole */}
+                        <circle cx="160" cy="160" r="160" fill="rgba(0,0,0,0.85)" mask="url(#mouth-mask)" />
+
+                        {/* Visual Guide */}
+                        <ellipse
+                          cx="160" cy="180" rx="92" ry="47"
+                          fill="none"
+                          stroke={instructionText === "Hold still..." ? "#10B981" : "white"}
+                          strokeWidth="3"
+                          opacity="0.8"
+                        />
+                        {/* Optional: Teeth Icon or Guide Lines could go here */}
+                      </svg>
+                    </div>
+                  ) : (
+                    /* Standard Circular Ring for Face/Teeth */
+                    <div className="absolute inset-0 z-20 pointer-events-none">
+                      <svg className="w-full h-full transform -rotate-90">
+                        <circle
+                          cx="160" cy="160" r="148"
+                          stroke="white" strokeWidth="4" fill="none" opacity="0.3"
+                        />
+                        <circle
+                          cx="160" cy="160" r="148"
+                          stroke="#10B981" strokeWidth="6" fill="none"
+                          strokeDasharray={2 * Math.PI * 148}
+                          strokeDashoffset={2 * Math.PI * 148 * (1 - scanProgress / 100)}
+                          strokeLinecap="round"
+                          className="transition-all duration-300 ease-linear"
+                        />
+                      </svg>
+                    </div>
+                  )}
+
+                  {/* Camera Video Source */}
+                  <div className={cn(
+                    "overflow-hidden border-4 shadow-2xl relative z-10 bg-black transition-all duration-500",
+                    // Ensure BOTH are circles
+                    selectedScan === 'eye' || selectedScan === 'eyes' ? "w-[320px] h-[320px] rounded-full border-white/10" : "w-[290px] h-[290px] rounded-full border-white/20"
+                  )}>
                     {cameraActive ? (
                       <video
                         ref={videoRef}
@@ -707,19 +858,19 @@ const Scan = () => {
                     <Badge
                       variant={
                         scanResult?.status === "Good"
-                          ? "default" // Green/Primary usually
+                          ? "default"
                           : scanResult?.status === "Critical"
                             ? "destructive"
-                            : "secondary" // Yellow/Warning usually needs custom class
+                            : "secondary"
                       }
                       className={cn(
                         "text-base px-4 py-1",
                         scanResult?.status === "Good" && "bg-green-500 hover:bg-green-600",
-                        scanResult?.status === "Low" && "bg-yellow-500 hover:bg-yellow-600 text-white",
-                        scanResult?.status === "Critical" && "bg-red-500 hover:bg-red-600"
+                        (scanResult?.status === "Low" || scanResult?.status === "Concern") && "bg-yellow-500 hover:bg-yellow-600 text-white",
+                        (scanResult?.status === "Critical" || scanResult?.status === "Urgent") && "bg-red-500 hover:bg-red-600"
                       )}
                     >
-                      {scanResult?.status || "Unknown"}
+                      {scanResult?.status === "Low" ? "Low Concern" : scanResult?.status || "Unknown"}
                     </Badge>
                   </div>
 
