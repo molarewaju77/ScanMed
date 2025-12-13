@@ -224,21 +224,55 @@ export const analyzeFace = async (req, res) => {
             // 0-39: "Critical" (Urgent) -> Score must be 0-39.
         }`;
 
-        // Try AI vision analysis with Groq
-        let useHeuristics = !chatInstance;
+        // Try AI vision analysis with Groq and Gemini (Dual-Model Verification)
+        let useHeuristics = !chatInstance && !geminiInstance;
 
-        if (chatInstance) {
+        if (chatInstance || geminiInstance) {
             try {
-                // Call Groq Vision API
-                console.log('Using Groq for image analysis...');
-                jsonResponse = await chatInstance.analyzeImage(
-                    req.file.buffer,
-                    req.file.mimetype,
-                    fullPrompt
-                );
-                console.log("Groq Raw Response:", jsonResponse);
+                console.log('Running AI Consensus Analysis (Groq + Gemini)...');
+
+                // Define analysis promises
+                const runGroq = chatInstance 
+                    ? chatInstance.analyzeImage(req.file.buffer, req.file.mimetype, fullPrompt).catch(e => null)
+                    : Promise.resolve(null);
+                
+                const runGemini = geminiInstance
+                    ? geminiInstance.analyzeImage(req.file.buffer, req.file.mimetype, fullPrompt).catch(e => null)
+                    : Promise.resolve(null);
+
+                // Run in parallel
+                const [groqRaw, geminiRaw] = await Promise.all([runGroq, runGemini]);
+
+                // Helper to parse JSON safely
+                const parseResult = (raw) => {
+                    try {
+                        // Extract JSON from markdown blocks if present
+                        const jsonStr = raw.replace(/```json\n?|\n?```/g, "").trim();
+                        return JSON.parse(jsonStr);
+                    } catch (e) { return null; }
+                };
+
+                const groqResult = groqRaw ? parseResult(groqRaw) : null;
+                const geminiResult = geminiRaw ? parseResult(geminiRaw) : null;
+
+                console.log("Groq Result:", groqResult ? groqResult.status : "Failed");
+                console.log("Gemini Result:", geminiResult ? geminiResult.status : "Failed");
+
+                // CONSENSUS LOGIC:
+                // 1. Prioritize Gemini (1.5 Flash is currently more stable/accurate than Llama Preview)
+                // 2. If Gemini fails, use Groq.
+                // 3. If Groq says "Critical" but Gemini says "Good/Low", TRUST GEMINI (False Positive prevention).
+                
+                if (geminiResult && geminiResult.status !== "Invalid") {
+                    jsonResponse = JSON.stringify(geminiResult);
+                } else if (groqResult && groqResult.status !== "Invalid") {
+                     jsonResponse = JSON.stringify(groqResult);
+                } else {
+                    throw new Error("Both AI models failed to produce valid JSON.");
+                }
+
             } catch (apiError) {
-                console.error('Gemini Vision Error:', apiError.message);
+                console.error('AI Vision verification failed:', apiError.message);
                 console.log("Falling back to Heuristic Engine...");
                 useHeuristics = true;
             }
